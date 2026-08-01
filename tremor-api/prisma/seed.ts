@@ -78,7 +78,7 @@ async function main() {
 
   for (const t of tokens) {
     await prisma.token.create({
-      data: { chain: "algorand", ...t },
+      data: { chain: "qie", ...t },
     });
   }
 
@@ -87,7 +87,7 @@ async function main() {
   for (const p of pools) {
     await prisma.pool.create({
       data: {
-        chain: "algorand",
+        chain: "qie",
         poolAddress: p.poolAddress,
         token0: p.token0,
         token1: p.token1,
@@ -168,7 +168,7 @@ async function main() {
       remaining = Math.max(0, remaining - pct);
       await prisma.holder.create({
         data: {
-          chain: "algorand",
+          chain: "qie",
           tokenAddress: t.address,
           holderAddress: `H${t.address.slice(0, 4)}${i.toString().padStart(2, "0")}${"A".repeat(48)}`.slice(0, 58),
           balance: d(Math.floor(1_000_000_000 * (pct / 100))),

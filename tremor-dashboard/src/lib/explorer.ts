@@ -1,30 +1,37 @@
 /**
- * Algorand block explorer links (Lora — supports mainnet + testnet).
- * Network follows NEXT_PUBLIC_ALGORAND_NETWORK or defaults to testnet.
+ * Qie block explorer (Blockscout) — defaults to mainnet.
  */
 
-export type AlgoNetwork = "mainnet" | "testnet";
+export type QieNetwork = "mainnet" | "testnet";
 
-export function algoNetwork(): AlgoNetwork {
-  const n = (process.env.NEXT_PUBLIC_ALGORAND_NETWORK || "testnet").toLowerCase();
-  return n === "mainnet" ? "mainnet" : "testnet";
+export function qieNetwork(): QieNetwork {
+  const n = (
+    process.env.NEXT_PUBLIC_QIE_NETWORK ||
+    process.env.NEXT_PUBLIC_ALGORAND_NETWORK ||
+    "mainnet"
+  ).toLowerCase();
+  return n === "testnet" ? "testnet" : "mainnet";
 }
 
-function loraBase(net: AlgoNetwork = algoNetwork()) {
-  return `https://lora.algokit.io/${net}`;
+function explorerBase(net: QieNetwork = qieNetwork()) {
+  return net === "mainnet"
+    ? "https://mainnet.qie.digital"
+    : "https://testnet.qie.digital";
 }
 
-/** Account / wallet page */
-export function explorerAccountUrl(address: string, net?: AlgoNetwork): string {
-  return `${loraBase(net)}/account/${encodeURIComponent(address)}`;
+export function explorerAccountUrl(address: string, net?: QieNetwork): string {
+  return `${explorerBase(net)}/address/${encodeURIComponent(address)}`;
 }
 
-/** Transaction detail page */
-export function explorerTxUrl(txId: string, net?: AlgoNetwork): string {
-  return `${loraBase(net)}/transaction/${encodeURIComponent(txId)}`;
+export function explorerTxUrl(txId: string, net?: QieNetwork): string {
+  return `${explorerBase(net)}/tx/${encodeURIComponent(txId)}`;
 }
 
-/** Asset (ASA) page */
-export function explorerAssetUrl(assetId: string, net?: AlgoNetwork): string {
-  return `${loraBase(net)}/asset/${encodeURIComponent(assetId)}`;
+export function explorerAssetUrl(assetId: string, net?: QieNetwork): string {
+  if (assetId === "0") return explorerBase(net);
+  return `${explorerBase(net)}/token/${encodeURIComponent(assetId)}`;
 }
+
+// Back-compat aliases
+export type AlgoNetwork = QieNetwork;
+export const algoNetwork = qieNetwork;

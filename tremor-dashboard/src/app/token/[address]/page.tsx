@@ -256,7 +256,7 @@ export default function TokenDetailPage() {
                   <span className="font-semibold text-white">{symbol}</span>
                   <span className="text-cs-dim">/</span>
                   <span className="font-medium text-cs-muted">{quoteLabel}</span>
-                  <Badge tone="blue">Qie</Badge>
+                  <Badge tone="blue">Qie Mainnet</Badge>
                   {data.primary_pair ? (
                     <DexLink
                       dex={data.primary_pair.dex}

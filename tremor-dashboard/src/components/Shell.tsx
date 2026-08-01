@@ -182,7 +182,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <Link href="/watchlist" className="hover:text-white">
               Watchlist
             </Link>
-            <span>Qie market data</span>
+            <span>Qie Mainnet market data</span>
           </div>
         </div>
       </footer>

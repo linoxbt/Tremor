@@ -6,8 +6,11 @@ import { num } from "../lib/envelope.js";
 import { getAsset, getAssetHolders, analyzeAssetRisk } from "../lib/algorand.js";
 
 function assertChain(chain: string) {
-  if (chain !== "algorand") {
-    const err = new Error(`Unsupported chain: ${chain}. Tremor v1 is Algorand-only.`);
+  // Accept "qie" (canonical) and legacy "algorand" path param during migration
+  if (chain !== "qie" && chain !== "algorand") {
+    const err = new Error(
+      `Unsupported chain: ${chain}. Tremor is Qie Mainnet only (use chain=qie).`,
+    );
     (err as Error & { status: number }).status = 400;
     throw err;
   }
@@ -730,7 +733,7 @@ export async function createWatch(input: {
   endpoints?: string[];
   webhook_url?: string;
 }) {
-  const chain = input.chain || "algorand";
+  const chain = input.chain || "qie";
   assertChain(chain);
   const watch = await prisma.watch.create({
     data: {
@@ -769,7 +772,7 @@ export async function listPools() {
   }
 
   const pools = await prisma.pool.findMany({
-    where: { chain: "algorand" },
+    where: { chain: "qie" },
     orderBy: { createdAt: "desc" },
   });
   const addrs = pools.map((p) => p.poolAddress);
@@ -816,7 +819,7 @@ export async function listTokensWithRisk() {
 
   const [tokens, topHolders, flags] = await Promise.all([
     prisma.token.findMany({
-      where: { chain: "algorand" },
+      where: { chain: "qie" },
       orderBy: { symbol: "asc" },
     }),
     // Top-10 holder % per token in one query
@@ -894,7 +897,7 @@ export async function listRiskFlags() {
  * Batched queries; cached ~15s.
  */
 export async function getTokenMarketDetail(address: string) {
-  assertChain("algorand");
+  assertChain("qie");
   const cacheKey = `token:detail:${address}`;
   const mem = memGet<unknown>(cacheKey);
   if (mem) return mem;
@@ -913,12 +916,12 @@ export async function getTokenMarketDetail(address: string) {
     whalesRes,
     tokenMeta,
   ] = await Promise.all([
-    getTokenPrice("algorand", address),
-    getRugScore("algorand", address),
-    getHolders("algorand", address),
-    getTokenPools("algorand", address),
-    getVolumeProfile("algorand", address),
-    getWhaleActivity("algorand", address, 24),
+    getTokenPrice("qie", address),
+    getRugScore("qie", address),
+    getHolders("qie", address),
+    getTokenPools("qie", address),
+    getVolumeProfile("qie", address),
+    getWhaleActivity("qie", address, 24),
     prisma.token.findUnique({ where: { address } }),
   ]);
 
@@ -978,9 +981,9 @@ export async function getTokenMarketDetail(address: string) {
   if (primary) {
     const pairAddr = primary.pool_address;
     const [pairRes, ohlcvRes, liqRes, snaps] = await Promise.all([
-      getPair("algorand", pairAddr),
-      getOhlcv("algorand", pairAddr, "1h", 120),
-      getLiquidityHistory("algorand", pairAddr),
+      getPair("qie", pairAddr),
+      getOhlcv("qie", pairAddr, "1h", 120),
+      getLiquidityHistory("qie", pairAddr),
       prisma.priceSnapshot.findMany({
         where: { poolAddress: pairAddr },
         orderBy: { ts: "desc" },
@@ -1077,12 +1080,12 @@ export async function getTokenMarketDetail(address: string) {
 
   const payload = {
     token: {
-      chain: "algorand",
+      chain: "qie",
       address,
       symbol: price.symbol || tokenMeta?.symbol || null,
       name: price.name || tokenMeta?.name || null,
       decimals: price.decimals ?? tokenMeta?.decimals ?? null,
-      logo: `https://asa-list.tinyman.org/assets/${address}/icon.png`,
+      logo: `https://mainnet.qie.digital/assets/${address}/icon.png`,
     },
     price: {
       usd: price.price_usd,

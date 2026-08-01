@@ -16,7 +16,7 @@ export function ok<T>(
   return res.status(opts?.status ?? 200).json({
     data,
     meta: {
-      chain: opts?.chain ?? "algorand",
+      chain: opts?.chain ?? "qie",
       generated_at: new Date().toISOString(),
       cache: opts?.cache ?? "miss",
     } satisfies Meta,
@@ -33,7 +33,7 @@ export function fail(
     error,
     details: details ?? null,
     meta: {
-      chain: "algorand",
+      chain: "qie",
       generated_at: new Date().toISOString(),
       cache: "bypass" as CacheStatus,
     },

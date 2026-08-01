@@ -3,9 +3,9 @@ import "./globals.css";
 import { Shell } from "@/components/Shell";
 
 export const metadata: Metadata = {
-  title: "Tremor · Qie Markets",
+  title: "Tremor · Qie Mainnet",
   description:
-    "Professional Qie DEX screener — pairs, volume, liquidity, holders, and rug risk. Powered by x402.",
+    "Professional Qie Mainnet DEX screener — pairs, volume, liquidity, holders, and rug risk.",
   icons: {
     icon: "/favicon.png",
     apple: "/apple-touch-icon.png",

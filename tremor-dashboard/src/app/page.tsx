@@ -100,15 +100,15 @@ export default function MarketsHome() {
         <div className="relative grid gap-4 p-3 md:grid-cols-[1.3fr_1fr] md:p-4">
           <div>
             <Badge tone="accent" className="mb-2">
-              Qie screener
+              Qie Mainnet
             </Badge>
             <h1 className="text-[20px] font-semibold tracking-tight text-white sm:text-[22px]">
               Markets{" "}
               <span className="text-cs-muted font-normal">· live pairs & risk</span>
             </h1>
             <p className="mt-1 max-w-md text-[11px] leading-relaxed text-cs-dim">
-              Dense terminal for Qie DEXes. Every public datapoint is also a metered
-              x402 endpoint.
+              Dense terminal for Qie Mainnet DEX. Every public datapoint is also a
+              metered x402 endpoint.
             </p>
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               <Link

@@ -140,7 +140,7 @@ export default function PairDetailPage() {
                 quote={s1}
               />
               <DexLink dex={p.dex} showIcon className="!text-[10px] !normal-case tracking-normal" />
-              <Badge tone="blue">Qie</Badge>
+              <Badge tone="blue">Qie Mainnet</Badge>
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-cs-dim">
               <button

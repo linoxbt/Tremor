@@ -5,7 +5,7 @@ import morgan from "morgan";
 import { config } from "./lib/config.js";
 import { initRedis } from "./lib/redis.js";
 import { prisma } from "./lib/db.js";
-import { healthCheckChain } from "./lib/algorand.js";
+import { healthCheckChain } from "./lib/qie-chain.js";
 import { v1Router } from "./routes/v1.js";
 import { internalRouter } from "./routes/internal.js";
 import { createX402Middleware } from "./middleware/x402.js";
@@ -25,12 +25,12 @@ async function main() {
     res.json({
       name: "Tremor API",
       version: "1.0.0",
-      chain: "algorand",
+      chain: "qie",
       network: config.network,
       challenge_tag: config.challengeTag,
       facilitator: config.facilitatorUrl,
       description:
-        "Metered Algorand market-data API — prices, pools, OHLCV, holders, rug-score — paid via x402 USDC",
+        "Metered Qie Mainnet market-data API — prices, pools, OHLCV, holders, rug-score — paid via x402",
       docs: {
         health: "/health",
         endpoints: "/v1/* (x402 paid)",
@@ -53,10 +53,12 @@ async function main() {
     const status = dbOk ? "ok" : "degraded";
     res.status(dbOk ? 200 : 503).json({
       status,
-      chain: "algorand",
+      chain: "qie",
       network: config.network,
       database: dbOk,
-      indexer: chain.indexer,
+      rpc: chain.rpc,
+      explorer: chain.explorer,
+      subgraph: chain.subgraph,
       uptime_s: Math.floor(process.uptime()),
       ts: new Date().toISOString(),
     });

@@ -111,8 +111,8 @@ export default function DocsPage() {
           <div>Next.js dashboard → /api/proxy/* → /internal/*</div>
         </div>
         <p className="text-[11px] text-cs-dim">
-          Chain parameter is <code className="text-cs-muted">algorand</code> in
-          the API path (historical); UI presents Qie market branding.
+          Live data is indexed from <strong className="text-cs-muted">Qie Mainnet</strong>{" "}
+          (chain id 1990) via the official DEX subgraph and Blockscout explorer.
         </p>
       </section>
 

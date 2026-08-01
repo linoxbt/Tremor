@@ -83,7 +83,7 @@ function discoveryFor(sampleOutput: Record<string, unknown>) {
       example: {
         data: sampleOutput,
         meta: {
-          chain: "algorand",
+          chain: "qie",
           generated_at: new Date().toISOString(),
           cache: "miss",
         },
@@ -217,7 +217,7 @@ export function buildX402Routes(): RoutesConfig {
         output: {
           example: {
             data: { id: "cuid", active: true },
-            meta: { chain: "algorand", generated_at: new Date().toISOString(), cache: "bypass" },
+            meta: { chain: "qie", generated_at: new Date().toISOString(), cache: "bypass" },
           },
         },
       }),

@@ -44,9 +44,9 @@ internalRouter.get(
 internalRouter.get(
   "/pools/:address",
   handle(async (req) => {
-    const pair = await market.getPair("algorand", req.params.address);
-    const ohlcv = await market.getOhlcv("algorand", req.params.address, "1h", 100);
-    const liq = await market.getLiquidityHistory("algorand", req.params.address);
+    const pair = await market.getPair("qie", req.params.address);
+    const ohlcv = await market.getOhlcv("qie", req.params.address, "1h", 100);
+    const liq = await market.getLiquidityHistory("qie", req.params.address);
     return {
       pair: pair.data,
       ohlcv: ohlcv.data,
@@ -63,8 +63,8 @@ internalRouter.get(
 internalRouter.get(
   "/trending",
   handle(async () => {
-    const t = await market.getTrending("algorand");
-    const n = await market.getNewPairs("algorand");
+    const t = await market.getTrending("qie");
+    const n = await market.getNewPairs("qie");
     return { trending: t.data, new_pairs: n.data };
   }),
 );
@@ -98,7 +98,7 @@ internalRouter.get(
 internalRouter.get(
   "/token/:address/price",
   handle(async (req) => {
-    const r = await market.getTokenPrice("algorand", req.params.address);
+    const r = await market.getTokenPrice("qie", req.params.address);
     return r.data;
   }),
 );
@@ -106,7 +106,7 @@ internalRouter.get(
 internalRouter.get(
   "/token/:address/rug-score",
   handle(async (req) => {
-    const r = await market.getRugScore("algorand", req.params.address);
+    const r = await market.getRugScore("qie", req.params.address);
     return r.data;
   }),
 );
@@ -114,7 +114,7 @@ internalRouter.get(
 internalRouter.get(
   "/token/:address/holders",
   handle(async (req) => {
-    const r = await market.getHolders("algorand", req.params.address);
+    const r = await market.getHolders("qie", req.params.address);
     return r.data;
   }),
 );
@@ -122,7 +122,7 @@ internalRouter.get(
 internalRouter.get(
   "/token/:address/pools",
   handle(async (req) => {
-    const r = await market.getTokenPools("algorand", req.params.address);
+    const r = await market.getTokenPools("qie", req.params.address);
     return r.data;
   }),
 );
@@ -130,7 +130,7 @@ internalRouter.get(
 internalRouter.get(
   "/token/:address/volume-profile",
   handle(async (req) => {
-    const r = await market.getVolumeProfile("algorand", req.params.address);
+    const r = await market.getVolumeProfile("qie", req.params.address);
     return r.data;
   }),
 );
@@ -139,7 +139,7 @@ internalRouter.get(
   "/token/:address/whale-activity",
   handle(async (req) => {
     const hours = parseInt((req.query.hours as string) || "24", 10);
-    const r = await market.getWhaleActivity("algorand", req.params.address, hours);
+    const r = await market.getWhaleActivity("qie", req.params.address, hours);
     return r.data;
   }),
 );

@@ -10,7 +10,7 @@ datasource db {
 /// ASA / native token metadata (Algorand only in v1)
 model Token {
   id        String   @id @default(cuid())
-  chain     String   @default("algorand")
+  chain     String   @default("qie")
   /// ASA ID as string; "0" for native ALGO
   address   String   @unique
   symbol    String
@@ -29,7 +29,7 @@ model Token {
 
 model Pool {
   id          String   @id @default(cuid())
-  chain       String   @default("algorand")
+  chain       String   @default("qie")
   poolAddress String   @unique @map("pool_address")
   token0      String
   token1      String
@@ -64,7 +64,7 @@ model PriceSnapshot {
 
 model Holder {
   id            String   @id @default(cuid())
-  chain         String   @default("algorand")
+  chain         String   @default("qie")
   tokenAddress  String   @map("token_address")
   holderAddress String   @map("holder_address")
   balance       Decimal  @db.Decimal(36, 0)
@@ -154,7 +154,7 @@ model WorkerRun {
 
 model Watch {
   id            String    @id @default(cuid())
-  chain         String    @default("algorand")
+  chain         String    @default("qie")
   targetType    String    @map("target_type")
   targetAddress String    @map("target_address")
   endpoints     String[]

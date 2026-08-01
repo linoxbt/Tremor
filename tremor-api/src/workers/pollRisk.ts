@@ -11,7 +11,7 @@ export async function pollRisk(): Promise<void> {
   const run = await recordWorkerRun("pollRisk", "running");
   try {
     const tokens = await prisma.token.findMany({
-      where: { chain: "algorand", NOT: { address: "0" } },
+      where: { chain: "qie", NOT: { address: "0" } },
     });
     let flagged = 0;
 
