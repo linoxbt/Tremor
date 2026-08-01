@@ -12,3 +12,4 @@ coverage/
 .netlify/
 *.tsbuildinfo
 prisma/*.db
+logs/

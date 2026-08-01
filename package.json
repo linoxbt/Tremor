@@ -2,7 +2,7 @@
   "name": "tremor",
   "private": true,
   "version": "1.0.0",
-  "description": "Tremor \u2014 Algorand x402 metered market-data API (Composite entry)",
+  "description": "Tremor — Qie Mainnet DEX screener & metered market-data API",
   "scripts": {
     "infra": "docker compose up -d",
     "api:install": "npm --prefix tremor-api install",
@@ -11,6 +11,7 @@
     "api:db": "npm --prefix tremor-api exec prisma db push && npm --prefix tremor-api run db:seed",
     "dash:install": "npm --prefix tremor-dashboard install",
     "dash:dev": "npm --prefix tremor-dashboard run dev -- -H 0.0.0.0 -p 3000",
+    "dev": "bash scripts/dev.sh",
     "typecheck": "npm --prefix tremor-api run typecheck && npm --prefix tremor-dashboard run build"
   }
 }

@@ -1,7 +1,9 @@
 # Tremor
 
-**Professional multichain-style DEX screener & metered market-data API.**  
+**Qie Mainnet DEX screener & metered market-data API.**  
 Dense DexScreener-class UI, token/pair detail, watchlists, risk scores, and a public **x402**-gated REST API.
+
+Live pairs are indexed from the **Qie Mainnet** DEX subgraph (`chain id 1990`).
 
 <p align="center">
   <img src="./tremor-dashboard/public/logo.png" alt="Tremor" width="96" height="96" />
