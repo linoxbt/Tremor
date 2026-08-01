@@ -1,0 +1,33 @@
+# Deploy the Tremor dashboard (Next.js) from the monorepo root.
+# Set Netlify "Base directory" to tremor-dashboard OR use this root config.
+
+[build]
+  base = "tremor-dashboard"
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# Next.js runtime on Netlify
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Environment variables (set in Netlify UI for production):
+#   NEXT_PUBLIC_API_URL   = https://your-api-host.example.com
+#   INTERNAL_API_KEY      = <same key as tremor-api INTERNAL_API_KEY>
+#   NEXT_PUBLIC_ALGORAND_NETWORK = testnet | mainnet
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+  force = false

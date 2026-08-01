@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// ASA / native token metadata (Algorand only in v1)
+model Token {
+  id        String   @id @default(cuid())
+  chain     String   @default("algorand")
+  /// ASA ID as string; "0" for native ALGO
+  address   String   @unique
+  symbol    String
+  name      String
+  decimals  Int      @default(6)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  riskFlags RiskFlag[]
+  holders   Holder[]
+
+  @@unique([chain, address])
+  @@index([symbol])
+  @@map("tokens")
+}
+
+model Pool {
+  id          String   @id @default(cuid())
+  chain       String   @default("algorand")
+  poolAddress String   @unique @map("pool_address")
+  token0      String
+  token1      String
+  dex         String   @default("tinyman")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  priceSnapshots   PriceSnapshot[]
+  ohlcv            Ohlcv[]
+  liquidityHistory LiquidityHistory[]
+
+  @@unique([chain, poolAddress])
+  @@index([token0])
+  @@index([token1])
+  @@index([createdAt])
+  @@map("pools")
+}
+
+model PriceSnapshot {
+  id           String   @id @default(cuid())
+  poolAddress  String   @map("pool_address")
+  price        Decimal  @db.Decimal(36, 18)
+  liquidityUsd Decimal  @default(0) @map("liquidity_usd") @db.Decimal(36, 8)
+  volume24h    Decimal  @default(0) @map("volume_24h") @db.Decimal(36, 8)
+  ts           DateTime @default(now())
+
+  pool Pool @relation(fields: [poolAddress], references: [poolAddress], onDelete: Cascade)
+
+  @@index([poolAddress, ts(sort: Desc)])
+  @@map("price_snapshots")
+}
+
+model Holder {
+  id            String   @id @default(cuid())
+  chain         String   @default("algorand")
+  tokenAddress  String   @map("token_address")
+  holderAddress String   @map("holder_address")
+  balance       Decimal  @db.Decimal(36, 0)
+  pctOfSupply   Decimal  @map("pct_of_supply") @db.Decimal(10, 6)
+  snapshotTs    DateTime @default(now()) @map("snapshot_ts")
+
+  token Token @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+
+  @@index([tokenAddress, snapshotTs(sort: Desc)])
+  @@index([tokenAddress, pctOfSupply(sort: Desc)])
+  @@map("holders")
+}
+
+model Ohlcv {
+  id          String   @id @default(cuid())
+  poolAddress String   @map("pool_address")
+  timeframe   String
+  open        Decimal  @db.Decimal(36, 18)
+  high        Decimal  @db.Decimal(36, 18)
+  low         Decimal  @db.Decimal(36, 18)
+  close       Decimal  @db.Decimal(36, 18)
+  volume      Decimal  @default(0) @db.Decimal(36, 8)
+  bucketTs    DateTime @map("bucket_ts")
+
+  pool Pool @relation(fields: [poolAddress], references: [poolAddress], onDelete: Cascade)
+
+  @@unique([poolAddress, timeframe, bucketTs])
+  @@index([poolAddress, timeframe, bucketTs(sort: Desc)])
+  @@map("ohlcv")
+}
+
+model LiquidityHistory {
+  id           String   @id @default(cuid())
+  poolAddress  String   @map("pool_address")
+  liquidityUsd Decimal  @map("liquidity_usd") @db.Decimal(36, 8)
+  ts           DateTime @default(now())
+
+  pool Pool @relation(fields: [poolAddress], references: [poolAddress], onDelete: Cascade)
+
+  @@index([poolAddress, ts(sort: Desc)])
+  @@map("liquidity_history")
+}
+
+model RiskFlag {
+  id           String   @id @default(cuid())
+  tokenAddress String   @map("token_address")
+  flagType     String   @map("flag_type")
+  severity     String
+  detectedAt   DateTime @default(now()) @map("detected_at")
+  detailsJson  Json     @default("{}") @map("details_json")
+  active       Boolean  @default(true)
+
+  token Token @relation(fields: [tokenAddress], references: [address], onDelete: Cascade)
+
+  @@index([tokenAddress, active])
+  @@index([severity])
+  @@map("risk_flags")
+}
+
+model PaymentsLog {
+  id           String   @id @default(cuid())
+  requestId    String   @map("request_id")
+  endpoint     String
+  payerAddress String?  @map("payer_address")
+  amount       String
+  txId         String?  @map("tx_id")
+  ts           DateTime @default(now())
+
+  @@index([ts(sort: Desc)])
+  @@index([endpoint, ts(sort: Desc)])
+  @@index([requestId])
+  @@map("payments_log")
+}
+
+model WorkerRun {
+  id         String    @id @default(cuid())
+  worker     String
+  status     String
+  startedAt  DateTime  @default(now()) @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  detail     String?
+  error      String?
+
+  @@index([worker, startedAt(sort: Desc)])
+  @@map("worker_runs")
+}
+
+model Watch {
+  id            String    @id @default(cuid())
+  chain         String    @default("algorand")
+  targetType    String    @map("target_type")
+  targetAddress String    @map("target_address")
+  endpoints     String[]
+  webhookUrl    String?   @map("webhook_url")
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastFiredAt   DateTime? @map("last_fired_at")
+
+  @@index([active])
+  @@map("watches")
+}

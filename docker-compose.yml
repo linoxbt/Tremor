@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tremor
+      POSTGRES_PASSWORD: tremor
+      POSTGRES_DB: tremor
+    # Change host ports if local Postgres/Redis already occupy 5432/6379
+    ports:
+      - "5436:5432"
+    volumes:
+      - tremor_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tremor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - tremor_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  tremor_pg:
+  tremor_redis:
