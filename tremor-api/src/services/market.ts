@@ -40,56 +40,55 @@ type SnapRow = {
   ts: Date;
 };
 
-/** Latest price snapshot per pool — single query (no N+1) */
+/**
+ * Latest price snapshot per pool — single query (no N+1).
+ *
+ * Uses a LATERAL join (per-pool index scan, LIMIT 1) instead of
+ * `DISTINCT ON (pool_address) ... ORDER BY pool_address, ts DESC`. Postgres
+ * can't turn that DISTINCT ON into a per-group index lookup on its own, so
+ * at scale (price_snapshots grows unbounded — a new row per pool every
+ * ~15s, forever) it degenerates into a scan+sort of nearly the whole
+ * table — multiple *minutes* at a few million rows. The LATERAL form lets
+ * the planner use the (pool_address, ts DESC) index directly per pool
+ * (sub-millisecond total, verified via EXPLAIN ANALYZE).
+ */
 async function latestSnapshotsByPool(
   poolAddresses?: string[],
 ): Promise<Map<string, SnapRow>> {
-  let rows: SnapRow[];
-  if (poolAddresses?.length) {
-    rows = await prisma.$queryRaw<SnapRow[]>`
-      SELECT DISTINCT ON (pool_address)
-        pool_address, price, liquidity_usd, volume_24h, ts
-      FROM price_snapshots
-      WHERE pool_address IN (${Prisma.join(poolAddresses)})
-      ORDER BY pool_address, ts DESC
-    `;
-  } else {
-    rows = await prisma.$queryRaw<SnapRow[]>`
-      SELECT DISTINCT ON (pool_address)
-        pool_address, price, liquidity_usd, volume_24h, ts
-      FROM price_snapshots
-      ORDER BY pool_address, ts DESC
-    `;
-  }
+  if (!poolAddresses?.length) return new Map();
+  const rows = await prisma.$queryRaw<SnapRow[]>`
+    SELECT p.pool_address, s.price, s.liquidity_usd, s.volume_24h, s.ts
+    FROM unnest(ARRAY[${Prisma.join(poolAddresses)}]::text[]) AS p(pool_address)
+    CROSS JOIN LATERAL (
+      SELECT price, liquidity_usd, volume_24h, ts
+      FROM price_snapshots ps
+      WHERE ps.pool_address = p.pool_address
+      ORDER BY ts DESC
+      LIMIT 1
+    ) s
+  `;
   const map = new Map<string, SnapRow>();
   for (const r of rows) map.set(r.pool_address, r);
   return map;
 }
 
-/** Snapshot as-of ~24h ago per pool — for change % */
+/** Snapshot as-of ~24h ago per pool — for change % (see latestSnapshotsByPool re: LATERAL vs DISTINCT ON) */
 async function snapshots24hAgo(
   poolAddresses?: string[],
 ): Promise<Map<string, SnapRow>> {
+  if (!poolAddresses?.length) return new Map();
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  let rows: SnapRow[];
-  if (poolAddresses?.length) {
-    rows = await prisma.$queryRaw<SnapRow[]>`
-      SELECT DISTINCT ON (pool_address)
-        pool_address, price, liquidity_usd, volume_24h, ts
-      FROM price_snapshots
-      WHERE pool_address IN (${Prisma.join(poolAddresses)})
-        AND ts <= ${cutoff}
-      ORDER BY pool_address, ts DESC
-    `;
-  } else {
-    rows = await prisma.$queryRaw<SnapRow[]>`
-      SELECT DISTINCT ON (pool_address)
-        pool_address, price, liquidity_usd, volume_24h, ts
-      FROM price_snapshots
-      WHERE ts <= ${cutoff}
-      ORDER BY pool_address, ts DESC
-    `;
-  }
+  const rows = await prisma.$queryRaw<SnapRow[]>`
+    SELECT p.pool_address, s.price, s.liquidity_usd, s.volume_24h, s.ts
+    FROM unnest(ARRAY[${Prisma.join(poolAddresses)}]::text[]) AS p(pool_address)
+    CROSS JOIN LATERAL (
+      SELECT price, liquidity_usd, volume_24h, ts
+      FROM price_snapshots ps
+      WHERE ps.pool_address = p.pool_address AND ps.ts <= ${cutoff}
+      ORDER BY ts DESC
+      LIMIT 1
+    ) s
+  `;
   const map = new Map<string, SnapRow>();
   for (const r of rows) map.set(r.pool_address, r);
   return map;
@@ -369,6 +368,7 @@ export async function search(q: string) {
 
   const tokens = await prisma.token.findMany({
     where: {
+      chain: "qie",
       OR: [
         { symbol: { contains: query, mode: "insensitive" } },
         { name: { contains: query, mode: "insensitive" } },
@@ -380,6 +380,7 @@ export async function search(q: string) {
 
   const pairs = await prisma.pool.findMany({
     where: {
+      chain: "qie",
       OR: [
         { poolAddress: { contains: query, mode: "insensitive" } },
         { token0: { contains: query } },
@@ -885,7 +886,7 @@ export async function listTokensWithRisk() {
 
 export async function listRiskFlags() {
   return prisma.riskFlag.findMany({
-    where: { active: true },
+    where: { active: true, token: { chain: "qie" } },
     orderBy: { detectedAt: "desc" },
     include: { token: true },
   });
@@ -1157,8 +1158,8 @@ export async function getStats() {
       sumSince(startOfDay),
       sumSince(d7),
       sumSince(d30),
-      prisma.pool.count(),
-      prisma.token.count(),
+      prisma.pool.count({ where: { chain: "qie" } }),
+      prisma.token.count({ where: { chain: "qie" } }),
     ]);
 
   const workers = ["pollPrices", "pollNewPairs", "pollHolders", "pollRisk"];

@@ -7,6 +7,7 @@
  * must run their own facilitator against QIE_RPC_URL (the @x402/evm package ships the
  * facilitator-side primitives for this) and point X402_FACILITATOR_URL at it.
  */
+import express from "express";
 import {
   paymentMiddleware,
   x402ResourceServer,
@@ -220,8 +221,39 @@ export function buildX402Routes(): RoutesConfig {
 
 export function createX402Middleware(): {
   middleware: RequestHandler;
-  server: x402ResourceServer;
+  server: x402ResourceServer | null;
 } {
+  const routes = buildX402Routes();
+
+  if (!config.paymentAsset) {
+    console.warn(
+      "[x402] QIE_PAYMENT_ASSET_ADDRESS is unset — set it to the ERC-20 contract address to accept payment in (e.g. USDC on Qie)",
+    );
+  }
+
+  if (!config.facilitatorUrl) {
+    // @x402/express's paymentMiddleware requires a successful initialize() handshake
+    // with a real facilitator before it can build ANY payment-required response — it
+    // throws (→ 500) on every request otherwise, rather than degrading gracefully.
+    // With no facilitator configured we bypass the SDK's facilitator-backed flow
+    // entirely and serve the same per-route pricing as a plain 402, built from data
+    // we already have — so /v1/* still advertises correctly instead of crashing.
+    console.warn(
+      "[x402] X402_FACILITATOR_URL is unset — /v1/* will advertise payment requirements via a static 402 but cannot settle payments until a Qie-capable facilitator is configured",
+    );
+    const router = express.Router();
+    for (const [key, routeConfig] of Object.entries(routes)) {
+      const spaceIdx = key.indexOf(" ");
+      const method = key.slice(0, spaceIdx).toLowerCase() as "get" | "post";
+      const path = key.slice(spaceIdx + 1);
+      const body = routeConfig.unpaidResponseBody?.().body ?? { error: "Payment Required" };
+      router[method](path, (_req, res) => {
+        res.status(402).json(body);
+      });
+    }
+    return { middleware: router, server: null };
+  }
+
   const facilitatorClient = new HTTPFacilitatorClient({
     url: config.facilitatorUrl,
   });
@@ -231,19 +263,7 @@ export function createX402Middleware(): {
     .register(QIE_TESTNET_CAIP2, new ExactEvmScheme())
     .register("eip155:*" as Network, new ExactEvmScheme());
 
-  // Dev/local: skip hard fail when facilitator scheme list is temporarily unreachable
-  const syncOnStart = process.env.X402_SYNC_ON_START !== "false" && Boolean(config.facilitatorUrl);
-
-  if (!config.facilitatorUrl) {
-    console.warn(
-      "[x402] X402_FACILITATOR_URL is unset — /v1/* will advertise payment requirements but cannot settle payments until a Qie-capable facilitator is configured",
-    );
-  }
-  if (!config.paymentAsset) {
-    console.warn(
-      "[x402] QIE_PAYMENT_ASSET_ADDRESS is unset — set it to the ERC-20 contract address to accept payment in (e.g. USDC on Qie)",
-    );
-  }
+  const syncOnStart = process.env.X402_SYNC_ON_START !== "false";
 
   // Enable Bazaar discovery so facilitators that support it can catalog endpoints
   try {
@@ -252,7 +272,6 @@ export function createX402Middleware(): {
     console.warn("[x402] bazaar extension registration:", (err as Error).message);
   }
 
-  const routes = buildX402Routes();
   const middleware = paymentMiddleware(routes, server, undefined, undefined, syncOnStart);
 
   return { middleware, server };
