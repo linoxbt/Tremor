@@ -1,7 +1,11 @@
 /**
  * x402 payment middleware for /v1/* routes.
- * Settles via GoPlausible facilitator on Algorand (Testnet/Mainnet).
- * Registers Bazaar discovery + x402-global-challenge tag.
+ * Settles the "exact" scheme in an ERC-20 asset on Qie Mainnet/Testnet (EVM, eip155:1990/1983)
+ * via a configurable x402 facilitator.
+ *
+ * No public facilitator (GoPlausible, Coinbase's CDP, etc.) supports Qie today — operators
+ * must run their own facilitator against QIE_RPC_URL (the @x402/evm package ships the
+ * facilitator-side primitives for this) and point X402_FACILITATOR_URL at it.
  */
 import {
   paymentMiddleware,
@@ -10,8 +14,7 @@ import {
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import type { RoutesConfig } from "@x402/core/server";
 import type { Network } from "@x402/core/types";
-import { ExactAvmScheme } from "@x402/avm/exact/server";
-import { USDC_TESTNET_ASA_ID, USDC_MAINNET_ASA_ID } from "@x402/avm";
+import { ExactEvmScheme } from "@x402/evm/exact/server";
 import {
   bazaarResourceServerExtension,
   declareDiscoveryExtension,
@@ -22,23 +25,11 @@ import { prisma } from "../lib/db.js";
 import { v4 as uuidv4 } from "uuid";
 import type { RequestHandler } from "express";
 
-/**
- * Full CAIP-2 IDs as advertised by GoPlausible `/supported`.
- * (Package constants use a truncated form that fails facilitator scheme matching.)
- */
-const FACILITATOR_ALGORAND_MAINNET =
-  "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=" as Network;
-const FACILITATOR_ALGORAND_TESTNET =
-  "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=" as Network;
+const QIE_MAINNET_CAIP2 = "eip155:1990" as Network;
+const QIE_TESTNET_CAIP2 = "eip155:1983" as Network;
 
 function networkCaip2(): Network {
-  return config.isMainnet
-    ? FACILITATOR_ALGORAND_MAINNET
-    : FACILITATOR_ALGORAND_TESTNET;
-}
-
-function usdcAsset(): string {
-  return config.isMainnet ? USDC_MAINNET_ASA_ID : USDC_TESTNET_ASA_ID;
+  return config.x402Network as Network;
 }
 
 function accept(price: string) {
@@ -48,11 +39,10 @@ function accept(price: string) {
     payTo: config.payTo,
     price,
     extra: {
-      asset: usdcAsset(),
-      name: "USDC",
-      decimals: 6,
-      /** Required for Algorand Global x402 Challenge tracking */
-      tag: config.challengeTag,
+      asset: config.paymentAsset,
+      name: config.paymentAssetSymbol,
+      decimals: config.paymentAssetDecimals,
+      tag: config.x402Tag,
     },
   };
 }
@@ -66,12 +56,14 @@ function unpaidBody(price: string, description: string) {
         error: "Payment Required",
         message: description,
         price,
-        asset: "USDC",
+        asset: config.paymentAssetSymbol,
         network: networkCaip2(),
         payTo: config.payTo,
-        challenge_tag: config.challengeTag,
-        facilitator: config.facilitatorUrl,
-        hint: "Retry with a valid x402 PAYMENT-SIGNATURE header after settling USDC via GoPlausible",
+        tag: config.x402Tag,
+        facilitator: config.facilitatorUrl || null,
+        hint: config.facilitatorUrl
+          ? "Retry with a valid x402 PAYMENT-SIGNATURE header after settling payment via the configured facilitator"
+          : "No x402 facilitator is configured for Qie yet (X402_FACILITATOR_URL unset) — payments cannot settle until an operator runs one",
       },
     }),
   };
@@ -101,7 +93,7 @@ export function buildX402Routes(): RoutesConfig {
       accepts: accept(PRICE_TIERS.micro.price),
       description: ENDPOINT_PRICES["GET /v1/token/:chain/:address/price"].description,
       mimeType: "application/json",
-      extensions: discoveryFor({ price_usd: 0.18, symbol: "ALGO" }),
+      extensions: discoveryFor({ price_usd: 0.18, symbol: "QIE" }),
       ...unpaidBody(PRICE_TIERS.micro.price, ENDPOINT_PRICES["GET /v1/token/:chain/:address/price"].description),
     },
     "GET /v1/pair/:chain/:pairAddress": {
@@ -202,7 +194,7 @@ export function buildX402Routes(): RoutesConfig {
         bodyType: "json",
         input: {
           target_type: "token",
-          target_address: "31566704",
+          target_address: "0x0087904D95BEe9E5F24dc8852804b547981A9139",
           endpoints: ["price", "rug-score"],
         },
         inputSchema: {
@@ -235,14 +227,25 @@ export function createX402Middleware(): {
   });
 
   const server = new x402ResourceServer(facilitatorClient)
-    .register(FACILITATOR_ALGORAND_TESTNET, new ExactAvmScheme())
-    .register(FACILITATOR_ALGORAND_MAINNET, new ExactAvmScheme())
-    .register("algorand:*" as Network, new ExactAvmScheme());
+    .register(QIE_MAINNET_CAIP2, new ExactEvmScheme())
+    .register(QIE_TESTNET_CAIP2, new ExactEvmScheme())
+    .register("eip155:*" as Network, new ExactEvmScheme());
 
   // Dev/local: skip hard fail when facilitator scheme list is temporarily unreachable
-  const syncOnStart = process.env.X402_SYNC_ON_START !== "false";
+  const syncOnStart = process.env.X402_SYNC_ON_START !== "false" && Boolean(config.facilitatorUrl);
 
-  // Enable Bazaar discovery so GoPlausible catalogs endpoints after first settlement
+  if (!config.facilitatorUrl) {
+    console.warn(
+      "[x402] X402_FACILITATOR_URL is unset — /v1/* will advertise payment requirements but cannot settle payments until a Qie-capable facilitator is configured",
+    );
+  }
+  if (!config.paymentAsset) {
+    console.warn(
+      "[x402] QIE_PAYMENT_ASSET_ADDRESS is unset — set it to the ERC-20 contract address to accept payment in (e.g. USDC on Qie)",
+    );
+  }
+
+  // Enable Bazaar discovery so facilitators that support it can catalog endpoints
   try {
     server.registerExtension(bazaarResourceServerExtension);
   } catch (err) {

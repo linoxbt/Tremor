@@ -27,8 +27,8 @@ async function main() {
       version: "1.0.0",
       chain: "qie",
       network: config.network,
-      challenge_tag: config.challengeTag,
-      facilitator: config.facilitatorUrl,
+      x402_tag: config.x402Tag,
+      facilitator: config.facilitatorUrl || null,
       description:
         "Metered Qie Mainnet market-data API — prices, pools, OHLCV, holders, rug-score — paid via x402",
       docs: {
@@ -64,7 +64,7 @@ async function main() {
     });
   });
 
-  // x402 payment gate on all /v1 routes (GoPlausible facilitator + Bazaar + challenge tag)
+  // x402 payment gate on all /v1 routes (configurable Qie-EVM facilitator + Bazaar discovery)
   const { middleware: x402 } = createX402Middleware();
   app.use(x402);
 
@@ -94,11 +94,12 @@ async function main() {
 
   app.listen(config.port, () => {
     console.log(`Tremor API listening on :${config.port}`);
-    console.log(`  network:     ${config.network}`);
-    console.log(`  facilitator: ${config.facilitatorUrl}`);
+    console.log(`  network:     ${config.network} (${config.x402Network})`);
+    console.log(`  facilitator: ${config.facilitatorUrl || "(unset — x402 settlement disabled)"}`);
     console.log(`  payTo:       ${config.payTo}`);
+    console.log(`  pay asset:   ${config.paymentAsset || "(unset — QIE_PAYMENT_ASSET_ADDRESS)"}`);
     console.log(`  mock data:   ${config.useMockData}`);
-    console.log(`  challenge:   ${config.challengeTag}`);
+    console.log(`  x402 tag:    ${config.x402Tag}`);
   });
 }
 

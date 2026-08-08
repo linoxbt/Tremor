@@ -1,62 +1,74 @@
 /**
- * Seed Algorand Mainnet-shaped demo data so the API and dashboard work offline.
- * Real pollers overwrite/extend these rows when USE_MOCK_DATA=false.
+ * Seed Qie Mainnet-shaped demo data so the API and dashboard work offline
+ * (USE_MOCK_DATA=true). Real pollers overwrite/extend these rows otherwise.
+ *
+ * Addresses below are synthetic (sequential 0x1000…/0x2000… placeholders) —
+ * they are NOT real deployed contracts. WQIE uses the real configured address
+ * so dashboard links to it resolve correctly even in offline/demo mode.
  */
 import { PrismaClient, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+function synth(prefix: string, n: number): string {
+  return `0x${prefix}${n.toString(16).padStart(40 - prefix.length, "0")}`;
+}
+
 const tokens = [
-  { address: "0", symbol: "ALGO", name: "Algorand", decimals: 6 },
-  { address: "31566704", symbol: "USDC", name: "USD Coin", decimals: 6 },
-  { address: "312769", symbol: "USDT", name: "Tether USDt", decimals: 6 },
-  { address: "386192725", symbol: "goBTC", name: "Bitcoin", decimals: 8 },
-  { address: "386195940", symbol: "goETH", name: "Ethereum", decimals: 8 },
-  { address: "27165954", symbol: "PLANET", name: "Planet", decimals: 6 },
-  { address: "137594422", symbol: "HEADLINE", name: "Headline", decimals: 6 },
-  { address: "287867876", symbol: "OPUL", name: "Opulous", decimals: 10 },
-  { address: "226701642", symbol: "YLDY", name: "Yieldly", decimals: 6 },
-  { address: "300208676", symbol: "SMILE", name: "Smile Coin", decimals: 6 },
-  { address: "470842789", symbol: "DEFLY", name: "Defly Token", decimals: 6 },
-  { address: "511484048", symbol: "GORA", name: "Gora", decimals: 9 },
-  { address: "403499324", symbol: "GARD", name: "GARD", decimals: 6 },
-  { address: "441139422", symbol: "gobtc", name: "GoBTC (legacy)", decimals: 8 },
-  { address: "465865291", symbol: "STBL", name: "AlgoStable", decimals: 6 },
-  { address: "700965019", symbol: "VEST", name: "Vestige", decimals: 6 },
-  { address: "796425061", symbol: "COOP", name: "Coop Coin", decimals: 6 },
-  { address: "987346050", symbol: "CHIP", name: "Chip", decimals: 6 },
-  { address: "1096015467", symbol: "FOLKS", name: "Folks Finance", decimals: 6 },
-  { address: "1138500612", symbol: "TINY", name: "Tinyman", decimals: 6 },
-  { address: "1241944285", symbol: "XET", name: "Xfinite", decimals: 9 },
-  { address: "793124631", symbol: "ZONE", name: "Zone", decimals: 6 },
-  { address: "688408515", symbol: "TAMO", name: "Tamago", decimals: 6 },
-  { address: "444035862", symbol: "CHOICE", name: "Choice Coin", decimals: 2 },
+  { address: "0", symbol: "QIE", name: "Qie", decimals: 18 },
+  { address: "0x0087904D95BEe9E5F24dc8852804b547981A9139", symbol: "WQIE", name: "Wrapped Qie", decimals: 18 },
+  { address: synth("1000", 1), symbol: "qUSDC", name: "Qie USD Coin (demo)", decimals: 6 },
+  { address: synth("1000", 2), symbol: "qUSDT", name: "Qie Tether USD (demo)", decimals: 6 },
+  { address: synth("1000", 3), symbol: "wBTC", name: "Wrapped Bitcoin (demo)", decimals: 8 },
+  { address: synth("1000", 4), symbol: "wETH", name: "Wrapped Ether (demo)", decimals: 18 },
+  { address: synth("1000", 5), symbol: "PLANET", name: "Planet (demo)", decimals: 18 },
+  { address: synth("1000", 6), symbol: "HEADLINE", name: "Headline (demo)", decimals: 18 },
+  { address: synth("1000", 7), symbol: "OPUL", name: "Opulous (demo)", decimals: 18 },
+  { address: synth("1000", 8), symbol: "YLDY", name: "Yieldly (demo)", decimals: 18 },
+  { address: synth("1000", 9), symbol: "SMILE", name: "Smile Coin (demo)", decimals: 18 },
+  { address: synth("1000", 10), symbol: "DEFLY", name: "Defly Token (demo)", decimals: 18 },
+  { address: synth("1000", 11), symbol: "GORA", name: "Gora (demo)", decimals: 18 },
+  { address: synth("1000", 12), symbol: "GARD", name: "GARD (demo)", decimals: 18 },
+  { address: synth("1000", 13), symbol: "STBL", name: "QieStable (demo)", decimals: 18 },
+  { address: synth("1000", 14), symbol: "VEST", name: "Vestige (demo)", decimals: 18 },
+  { address: synth("1000", 15), symbol: "COOP", name: "Coop Coin (demo)", decimals: 18 },
+  { address: synth("1000", 16), symbol: "CHIP", name: "Chip (demo)", decimals: 18 },
+  { address: synth("1000", 17), symbol: "FOLKS", name: "Folks Finance (demo)", decimals: 18 },
+  { address: synth("1000", 18), symbol: "TINY", name: "Tiny (demo)", decimals: 18 },
+  { address: synth("1000", 19), symbol: "XET", name: "Xfinite (demo)", decimals: 18 },
+  { address: synth("1000", 20), symbol: "ZONE", name: "Zone (demo)", decimals: 18 },
+  { address: synth("1000", 21), symbol: "TAMO", name: "Tamago (demo)", decimals: 18 },
+  { address: synth("1000", 22), symbol: "CHOICE", name: "Choice Coin (demo)", decimals: 18 },
 ];
 
+const QIE = "0";
+const WQIE = "0x0087904D95BEe9E5F24dc8852804b547981A9139";
+const qUSDC = synth("1000", 1);
+
 const pools = [
-  { poolAddress: "TM-ALGO-USDC-V2-001", token0: "0", token1: "31566704", dex: "tinyman", price: 0.18, liq: 4_200_000, vol: 890_000 },
-  { poolAddress: "TM-ALGO-USDT-V2-002", token0: "0", token1: "312769", dex: "tinyman", price: 0.1795, liq: 1_100_000, vol: 210_000 },
-  { poolAddress: "TM-GOBTC-ALGO-V2-003", token0: "386192725", token1: "0", dex: "tinyman", price: 65000, liq: 2_800_000, vol: 450_000 },
-  { poolAddress: "PACT-ALGO-USDC-001", token0: "0", token1: "31566704", dex: "pact", price: 0.1802, liq: 980_000, vol: 120_000 },
-  { poolAddress: "TM-PLANET-ALGO-V2-004", token0: "27165954", token1: "0", dex: "tinyman", price: 0.00042, liq: 85_000, vol: 12_500 },
-  { poolAddress: "TM-OPUL-USDC-V2-005", token0: "287867876", token1: "31566704", dex: "tinyman", price: 0.085, liq: 320_000, vol: 48_000 },
-  { poolAddress: "TM-GOETH-ALGO-V2-006", token0: "386195940", token1: "0", dex: "tinyman", price: 3400, liq: 1_450_000, vol: 280_000 },
-  { poolAddress: "TM-YLDY-ALGO-V2-007", token0: "226701642", token1: "0", dex: "tinyman", price: 0.000018, liq: 42_000, vol: 8_200 },
-  { poolAddress: "TM-SMILE-ALGO-V2-008", token0: "300208676", token1: "0", dex: "tinyman", price: 0.00012, liq: 28_000, vol: 4_100 },
-  { poolAddress: "TM-DEFLY-ALGO-V2-009", token0: "470842789", token1: "0", dex: "tinyman", price: 0.0024, liq: 95_000, vol: 18_000 },
-  { poolAddress: "TM-GORA-USDC-V2-010", token0: "511484048", token1: "31566704", dex: "tinyman", price: 0.045, liq: 210_000, vol: 35_000 },
-  { poolAddress: "PACT-GARD-ALGO-011", token0: "403499324", token1: "0", dex: "pact", price: 0.98, liq: 560_000, vol: 72_000 },
-  { poolAddress: "TM-STBL-USDC-V2-012", token0: "465865291", token1: "31566704", dex: "tinyman", price: 1.001, liq: 890_000, vol: 140_000 },
-  { poolAddress: "TM-VEST-ALGO-V2-013", token0: "700965019", token1: "0", dex: "tinyman", price: 0.0088, liq: 64_000, vol: 11_000 },
-  { poolAddress: "TM-TINY-ALGO-V2-014", token0: "1138500612", token1: "0", dex: "tinyman", price: 0.012, liq: 180_000, vol: 29_000 },
-  { poolAddress: "TM-FOLKS-USDC-V2-015", token0: "1096015467", token1: "31566704", dex: "tinyman", price: 0.22, liq: 410_000, vol: 55_000 },
-  { poolAddress: "TM-HEADLINE-ALGO-016", token0: "137594422", token1: "0", dex: "tinyman", price: 0.00035, liq: 18_000, vol: 2_400 },
-  { poolAddress: "TM-CHIP-ALGO-V2-017", token0: "987346050", token1: "0", dex: "tinyman", price: 0.0011, liq: 33_000, vol: 5_600 },
-  { poolAddress: "TM-ZONE-USDC-V2-018", token0: "793124631", token1: "31566704", dex: "tinyman", price: 0.0065, liq: 47_000, vol: 7_800 },
-  { poolAddress: "PACT-CHOICE-ALGO-019", token0: "444035862", token1: "0", dex: "pact", price: 0.00008, liq: 12_000, vol: 1_900 },
-  { poolAddress: "TM-COOP-ALGO-V2-020", token0: "796425061", token1: "0", dex: "tinyman", price: 0.00055, liq: 22_000, vol: 3_200 },
-  { poolAddress: "TM-TAMO-ALGO-V2-021", token0: "688408515", token1: "0", dex: "tinyman", price: 0.00021, liq: 15_500, vol: 2_100 },
-  { poolAddress: "TM-XET-ALGO-V2-022", token0: "1241944285", token1: "0", dex: "tinyman", price: 0.0009, liq: 26_000, vol: 4_400 },
+  { poolAddress: synth("2000", 1), token0: QIE, token1: qUSDC, dex: "qie-dex", price: 0.18, liq: 4_200_000, vol: 890_000 },
+  { poolAddress: synth("2000", 2), token0: QIE, token1: synth("1000", 2), dex: "qie-dex", price: 0.1795, liq: 1_100_000, vol: 210_000 },
+  { poolAddress: synth("2000", 3), token0: synth("1000", 3), token1: QIE, dex: "qie-dex", price: 65000, liq: 2_800_000, vol: 450_000 },
+  { poolAddress: synth("2000", 4), token0: QIE, token1: qUSDC, dex: "qie-dex", price: 0.1802, liq: 980_000, vol: 120_000 },
+  { poolAddress: synth("2000", 5), token0: synth("1000", 5), token1: QIE, dex: "qie-dex", price: 0.00042, liq: 85_000, vol: 12_500 },
+  { poolAddress: synth("2000", 6), token0: synth("1000", 7), token1: qUSDC, dex: "qie-dex", price: 0.085, liq: 320_000, vol: 48_000 },
+  { poolAddress: synth("2000", 7), token0: synth("1000", 4), token1: QIE, dex: "qie-dex", price: 3400, liq: 1_450_000, vol: 280_000 },
+  { poolAddress: synth("2000", 8), token0: synth("1000", 8), token1: QIE, dex: "qie-dex", price: 0.000018, liq: 42_000, vol: 8_200 },
+  { poolAddress: synth("2000", 9), token0: synth("1000", 9), token1: QIE, dex: "qie-dex", price: 0.00012, liq: 28_000, vol: 4_100 },
+  { poolAddress: synth("2000", 10), token0: synth("1000", 10), token1: QIE, dex: "qie-dex", price: 0.0024, liq: 95_000, vol: 18_000 },
+  { poolAddress: synth("2000", 11), token0: synth("1000", 11), token1: qUSDC, dex: "qie-dex", price: 0.045, liq: 210_000, vol: 35_000 },
+  { poolAddress: synth("2000", 12), token0: synth("1000", 12), token1: QIE, dex: "qie-dex", price: 0.98, liq: 560_000, vol: 72_000 },
+  { poolAddress: synth("2000", 13), token0: synth("1000", 13), token1: qUSDC, dex: "qie-dex", price: 1.001, liq: 890_000, vol: 140_000 },
+  { poolAddress: synth("2000", 14), token0: synth("1000", 14), token1: QIE, dex: "qie-dex", price: 0.0088, liq: 64_000, vol: 11_000 },
+  { poolAddress: synth("2000", 15), token0: synth("1000", 18), token1: QIE, dex: "qie-dex", price: 0.012, liq: 180_000, vol: 29_000 },
+  { poolAddress: synth("2000", 16), token0: synth("1000", 17), token1: qUSDC, dex: "qie-dex", price: 0.22, liq: 410_000, vol: 55_000 },
+  { poolAddress: synth("2000", 17), token0: synth("1000", 6), token1: QIE, dex: "qie-dex", price: 0.00035, liq: 18_000, vol: 2_400 },
+  { poolAddress: synth("2000", 18), token0: synth("1000", 16), token1: QIE, dex: "qie-dex", price: 0.0011, liq: 33_000, vol: 5_600 },
+  { poolAddress: synth("2000", 19), token0: synth("1000", 20), token1: qUSDC, dex: "qie-dex", price: 0.0065, liq: 47_000, vol: 7_800 },
+  { poolAddress: synth("2000", 20), token0: synth("1000", 22), token1: QIE, dex: "qie-dex", price: 0.00008, liq: 12_000, vol: 1_900 },
+  { poolAddress: synth("2000", 21), token0: synth("1000", 15), token1: QIE, dex: "qie-dex", price: 0.00055, liq: 22_000, vol: 3_200 },
+  { poolAddress: synth("2000", 22), token0: synth("1000", 21), token1: QIE, dex: "qie-dex", price: 0.00021, liq: 15_500, vol: 2_100 },
+  { poolAddress: synth("2000", 23), token0: synth("1000", 19), token1: QIE, dex: "qie-dex", price: 0.0009, liq: 26_000, vol: 4_400 },
 ];
 
 function d(n: number): Prisma.Decimal {
@@ -64,7 +76,7 @@ function d(n: number): Prisma.Decimal {
 }
 
 async function main() {
-  console.log("Seeding Tremor (Algorand)…");
+  console.log("Seeding Tremor (Qie)…");
 
   // Clean market tables for a full reseed (keep payments if you want — wipe for consistency)
   await prisma.holder.deleteMany();
@@ -155,8 +167,8 @@ async function main() {
     }
   }
 
-  // Holders for all non-ALGO tokens
-  for (const t of tokens.filter((x) => x.address !== "0")) {
+  // Holders for all non-native tokens
+  for (const t of tokens.filter((x) => x.address !== QIE)) {
     let remaining = 100;
     for (let i = 0; i < 15; i++) {
       const pct =
@@ -170,7 +182,7 @@ async function main() {
         data: {
           chain: "qie",
           tokenAddress: t.address,
-          holderAddress: `H${t.address.slice(0, 4)}${i.toString().padStart(2, "0")}${"A".repeat(48)}`.slice(0, 58),
+          holderAddress: `0x${i.toString(16).padStart(2, "0")}${"a".repeat(38)}`,
           balance: d(Math.floor(1_000_000_000 * (pct / 100))),
           pctOfSupply: d(Number(pct.toFixed(4))),
           snapshotTs: new Date(),
@@ -181,13 +193,13 @@ async function main() {
 
   await prisma.riskFlag.createMany({
     data: [
-      { tokenAddress: "27165954", flagType: "holder_concentration", severity: "medium", detailsJson: { top10Pct: 62.4 } },
-      { tokenAddress: "287867876", flagType: "lp_unlocked", severity: "low", detailsJson: { lockedPct: 35 } },
-      { tokenAddress: "137594422", flagType: "mint_authority", severity: "high", detailsJson: { mintable: true } },
-      { tokenAddress: "300208676", flagType: "holder_concentration", severity: "high", detailsJson: { top10Pct: 78 } },
-      { tokenAddress: "226701642", flagType: "lp_unlocked", severity: "medium", detailsJson: { lockedPct: 12 } },
-      { tokenAddress: "444035862", flagType: "mint_authority", severity: "high", detailsJson: { mintable: true } },
-      { tokenAddress: "987346050", flagType: "holder_concentration", severity: "medium", detailsJson: { top10Pct: 55 } },
+      { tokenAddress: synth("1000", 5), flagType: "holder_concentration", severity: "medium", detailsJson: { top10Pct: 62.4 } },
+      { tokenAddress: synth("1000", 7), flagType: "lp_unlocked", severity: "low", detailsJson: { lockedPct: 35 } },
+      { tokenAddress: synth("1000", 6), flagType: "mint_authority", severity: "high", detailsJson: { mintable: true } },
+      { tokenAddress: synth("1000", 9), flagType: "holder_concentration", severity: "high", detailsJson: { top10Pct: 78 } },
+      { tokenAddress: synth("1000", 8), flagType: "lp_unlocked", severity: "medium", detailsJson: { lockedPct: 12 } },
+      { tokenAddress: synth("1000", 22), flagType: "mint_authority", severity: "high", detailsJson: { mintable: true } },
+      { tokenAddress: synth("1000", 16), flagType: "holder_concentration", severity: "medium", detailsJson: { top10Pct: 55 } },
     ],
   });
 
@@ -195,11 +207,11 @@ async function main() {
   const payCount = await prisma.paymentsLog.count();
   if (payCount < 50) {
     const endpoints = [
-      { path: "/v1/token/algorand/*/price", amount: "0.002" },
-      { path: "/v1/pair/algorand/*", amount: "0.003" },
-      { path: "/v1/trending/algorand", amount: "0.01" },
-      { path: "/v1/token/algorand/*/rug-score", amount: "0.08" },
-      { path: "/v1/pair/algorand/*/ohlcv", amount: "0.03" },
+      { path: "/v1/token/qie/*/price", amount: "0.002" },
+      { path: "/v1/pair/qie/*", amount: "0.003" },
+      { path: "/v1/trending/qie", amount: "0.01" },
+      { path: "/v1/token/qie/*/rug-score", amount: "0.08" },
+      { path: "/v1/pair/qie/*/ohlcv", amount: "0.03" },
     ];
     for (let day = 0; day < 10; day++) {
       for (const ep of endpoints) {
@@ -209,9 +221,9 @@ async function main() {
             data: {
               requestId: `seed2-${day}-${ep.path}-${c}`,
               endpoint: ep.path,
-              payerAddress: `PAYER${c}${"B".repeat(50)}`.slice(0, 58),
+              payerAddress: `0x${c.toString(16).padStart(2, "0")}${"b".repeat(38)}`,
               amount: ep.amount,
-              txId: `SEEDTX${day}${c}${Math.random().toString(36).slice(2, 8)}`,
+              txId: `0xseedtx${day}${c}${Math.random().toString(36).slice(2, 8)}`,
               ts: new Date(now - day * 24 * 60 * 60 * 1000 - c * 60_000),
             },
           });

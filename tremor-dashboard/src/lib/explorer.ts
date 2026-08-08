@@ -5,11 +5,7 @@
 export type QieNetwork = "mainnet" | "testnet";
 
 export function qieNetwork(): QieNetwork {
-  const n = (
-    process.env.NEXT_PUBLIC_QIE_NETWORK ||
-    process.env.NEXT_PUBLIC_ALGORAND_NETWORK ||
-    "mainnet"
-  ).toLowerCase();
+  const n = (process.env.NEXT_PUBLIC_QIE_NETWORK || "mainnet").toLowerCase();
   return n === "testnet" ? "testnet" : "mainnet";
 }
 
@@ -31,7 +27,3 @@ export function explorerAssetUrl(assetId: string, net?: QieNetwork): string {
   if (assetId === "0") return explorerBase(net);
   return `${explorerBase(net)}/token/${encodeURIComponent(assetId)}`;
 }
-
-// Back-compat aliases
-export type AlgoNetwork = QieNetwork;
-export const algoNetwork = qieNetwork;

@@ -126,7 +126,7 @@ export default function DashboardPage() {
   const endpointBars = useMemo(() => {
     return (revenue?.by_endpoint ?? []).slice(0, 8).map((e, i) => ({
       ...e,
-      short: e.endpoint.replace("/v1/", "").replace(/algorand\/\*/g, "*").slice(0, 28),
+      short: e.endpoint.replace("/v1/", "").replace(/qie\/\*/g, "*").slice(0, 28),
       fill: ENDPOINT_COLORS[i % ENDPOINT_COLORS.length],
     }));
   }, [revenue]);

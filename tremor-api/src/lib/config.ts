@@ -24,9 +24,10 @@ export const config = {
   ),
   redisUrl: process.env.REDIS_URL || "redis://localhost:6380",
 
-  facilitatorUrl:
-    process.env.GOPLAUSIBLE_FACILITATOR_URL ||
-    "https://facilitator.goplausible.xyz",
+  // No public x402 facilitator supports Qie (eip155:1990/1983) today — GoPlausible is
+  // Algorand/Base/Solana only. Operators must self-host a facilitator (e.g. the
+  // @x402/evm facilitator primitives pointed at QIE_RPC_URL) and set this explicitly.
+  facilitatorUrl: process.env.X402_FACILITATOR_URL || "",
   payTo:
     process.env.PAYTO_ADDRESS ||
     "0x0000000000000000000000000000000000000000",
@@ -65,10 +66,20 @@ export const config = {
   dexSwapUrl:
     process.env.QIE_DEX_URL || "https://www.swap.dex.qie.digital/swap",
 
+  // x402 CAIP-2 network id for the "exact" EVM scheme (eip155:<chainId>)
+  x402Network: `eip155:${isMainnet ? 1990 : 1983}`,
+
+  // ERC-20 settlement asset for x402 payments. There is no confirmed canonical
+  // USDC deployment on Qie yet, so this must be supplied by the operator —
+  // no address is guessed/defaulted here.
+  paymentAsset: process.env.QIE_PAYMENT_ASSET_ADDRESS || "",
+  paymentAssetSymbol: process.env.QIE_PAYMENT_ASSET_SYMBOL || "USDC",
+  paymentAssetDecimals: parseInt(process.env.QIE_PAYMENT_ASSET_DECIMALS || "6", 10),
+
   // Live mainnet by default when subgraph is available
   useMockData: (process.env.USE_MOCK_DATA || "false").toLowerCase() === "true",
 
-  challengeTag: process.env.CHALLENGE_TAG || "tremor-qie",
+  x402Tag: process.env.X402_TAG || "tremor-qie",
 
   cacheTtlSeconds: {
     price: 20,

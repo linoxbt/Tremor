@@ -157,3 +157,41 @@ export async function getExplorerToken(address: string) {
     icon_url: string | null;
   }>(`/api/v2/tokens/${address}`);
 }
+
+const OWNER_SELECTOR = "0x8da5cb5b"; // owner() — standard Ownable getter
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+export interface TokenRiskInfo {
+  ownerAddress: string | null;
+  /** True when an Ownable `owner()` returned a non-zero address (privileged control present) */
+  mintAuthorityPresent: boolean;
+  ownershipRenounced: boolean;
+}
+
+/**
+ * Best-effort EVM risk signal: calls the standard Ownable `owner()` selector.
+ * A present, non-zero owner is treated the same way the old Algorand ASA
+ * "manager" field was — as a sign the contract retains privileged control
+ * (mint/pause/etc.). Contracts without an `owner()` function (most plain
+ * ERC-20s) fail the eth_call and are treated as ownership-renounced.
+ */
+export async function analyzeTokenRisk(address: string): Promise<TokenRiskInfo> {
+  if (address === "0") {
+    // Native QIE coin — no contract, no owner.
+    return { ownerAddress: null, mintAuthorityPresent: false, ownershipRenounced: true };
+  }
+  const result = await rpcCall<string>("eth_call", [
+    { to: address, data: OWNER_SELECTOR },
+    "latest",
+  ]);
+  if (!result || result === "0x" || result.length < 66) {
+    return { ownerAddress: null, mintAuthorityPresent: false, ownershipRenounced: true };
+  }
+  const ownerAddress = `0x${result.slice(-40)}`.toLowerCase();
+  const mintAuthorityPresent = ownerAddress !== ZERO_ADDRESS;
+  return {
+    ownerAddress,
+    mintAuthorityPresent,
+    ownershipRenounced: !mintAuthorityPresent,
+  };
+}

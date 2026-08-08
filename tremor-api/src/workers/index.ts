@@ -1,5 +1,5 @@
 /**
- * Tremor sync workers (Algorand Mainnet/Testnet only).
+ * Tremor sync workers (Qie Mainnet/Testnet only).
  * Run separately: `npm run workers`
  */
 import cron from "node-cron";
@@ -21,7 +21,7 @@ async function safe(name: string, fn: () => Promise<void>) {
 
 async function main() {
   await initRedis();
-  console.log("[workers] Tremor Algorand sync workers starting…");
+  console.log("[workers] Tremor Qie sync workers starting…");
 
   // Initial kick
   await safe("pollPrices", pollPrices);

@@ -103,7 +103,7 @@ function TokensInner() {
                 <tr>
                   <th>#</th>
                   <th>Token</th>
-                  <th>ASA id</th>
+                  <th>Address</th>
                   <th className="text-right">Decimals</th>
                   <th className="text-right">Top10 %</th>
                   <th className="text-right">Rug</th>

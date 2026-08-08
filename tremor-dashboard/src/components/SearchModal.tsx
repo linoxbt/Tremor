@@ -74,7 +74,7 @@ export function SearchModal({
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search tokens, pairs, ASA ids…"
+            placeholder="Search tokens, pairs, addresses…"
             className="h-14 flex-1 bg-transparent text-[15px] text-white placeholder:text-cs-dim focus:outline-none focus:shadow-none"
           />
           <button onClick={onClose} className="rounded-md p-1.5 text-cs-dim hover:bg-cs-hover hover:text-white">

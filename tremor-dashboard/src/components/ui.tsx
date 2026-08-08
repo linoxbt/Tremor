@@ -161,19 +161,19 @@ export function TokenAvatar({
   size = 22,
   seed,
   address,
+  logo,
 }: {
   symbol: string;
   size?: number;
-  /** Asset id (ASA) or "0" for ALGO — used for real logo URL */
+  /** Color-hash seed when address isn't available */
   seed?: string;
-  /** Prefer address; falls back to seed */
+  /** Token contract address (0x…), or "0" for native QIE — used as the color-hash seed */
   address?: string;
+  /** Explorer-provided icon URL (see market.ts token.logo); no default is fabricated */
+  logo?: string | null;
 }) {
   const assetId = address ?? seed ?? "";
-  const logoSrc =
-    assetId !== "" && /^\d+$/.test(String(assetId))
-      ? `https://asa-list.tinyman.org/assets/${assetId}/icon.png`
-      : null;
+  const logoSrc = logo || null;
 
   const letter = (symbol || "?").slice(0, 2).toUpperCase();
   let h = 0;

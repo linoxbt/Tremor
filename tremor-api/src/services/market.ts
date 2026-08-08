@@ -3,11 +3,12 @@ import { prisma } from "../lib/db.js";
 import { cacheGet, cacheSet } from "../lib/redis.js";
 import { config } from "../lib/config.js";
 import { num } from "../lib/envelope.js";
-import { getAsset, getAssetHolders, analyzeAssetRisk } from "../lib/algorand.js";
+import { analyzeTokenRisk, getTokenHolders, getExplorerToken } from "../lib/qie-chain.js";
+
+const STABLE_SYMBOL_RE = /qusdc|usdc|usdt|dai/i;
 
 function assertChain(chain: string) {
-  // Accept "qie" (canonical) and legacy "algorand" path param during migration
-  if (chain !== "qie" && chain !== "algorand") {
+  if (chain !== "qie") {
     const err = new Error(
       `Unsupported chain: ${chain}. Tremor is Qie Mainnet only (use chain=qie).`,
     );
@@ -173,8 +174,8 @@ export async function getTokenPrice(chain: string, address: string) {
   }
   if (w > 0) vwap = acc / w;
 
-  // Stablecoin / quote fallback: USDC/USDT ≈ $1
-  if (vwap == null && (address === "31566704" || address === "312769" || address === "465865291")) {
+  // Stablecoin / quote fallback: USDC/USDT/DAI ≈ $1
+  if (vwap == null && token?.symbol && STABLE_SYMBOL_RE.test(token.symbol)) {
     vwap = 1;
   }
 
@@ -488,17 +489,18 @@ export async function getHolders(chain: string, address: string) {
     take: 50,
   });
 
-  // Refresh from indexer if empty and live mode
+  // Refresh from explorer if empty and live mode
   if (!holders.length && !config.useMockData) {
-    const balances = await getAssetHolders(address, 20);
-    const total = balances.reduce((s, b) => s + b.amount, 0) || 1;
+    const balances = await getTokenHolders(address, 20);
+    const amounts = balances.map((b) => Number(b.amount));
+    const total = amounts.reduce((s, a) => s + a, 0) || 1;
     holders = balances.map((b, i) => ({
       id: `live-${i}`,
       chain,
       tokenAddress: address,
       holderAddress: b.address,
-      balance: b.amount as unknown as (typeof holders)[0]["balance"],
-      pctOfSupply: ((b.amount / total) * 100) as unknown as (typeof holders)[0]["pctOfSupply"],
+      balance: amounts[i] as unknown as (typeof holders)[0]["balance"],
+      pctOfSupply: ((amounts[i] / total) * 100) as unknown as (typeof holders)[0]["pctOfSupply"],
       snapshotTs: new Date(),
     }));
   }
@@ -601,12 +603,9 @@ export async function getRugScore(chain: string, address: string) {
   let lpLockScore = 70; // default assumed partial
 
   if (!config.useMockData && address !== "0") {
-    const asset = await getAsset(address);
-    if (asset) {
-      const risk = analyzeAssetRisk(asset);
-      mintAuthorityPresent = risk.mintAuthorityPresent;
-      ownershipRenounced = risk.ownershipRenounced;
-    }
+    const risk = await analyzeTokenRisk(address);
+    mintAuthorityPresent = risk.mintAuthorityPresent;
+    ownershipRenounced = risk.ownershipRenounced;
   } else {
     mintAuthorityPresent = flags.some((f) => f.flagType === "mint_authority");
     ownershipRenounced = !mintAuthorityPresent;
@@ -915,6 +914,7 @@ export async function getTokenMarketDetail(address: string) {
     volumeRes,
     whalesRes,
     tokenMeta,
+    explorerToken,
   ] = await Promise.all([
     getTokenPrice("qie", address),
     getRugScore("qie", address),
@@ -923,6 +923,7 @@ export async function getTokenMarketDetail(address: string) {
     getVolumeProfile("qie", address),
     getWhaleActivity("qie", address, 24),
     prisma.token.findUnique({ where: { address } }),
+    address === "0" ? Promise.resolve(null) : getExplorerToken(address),
   ]);
 
   const price = priceRes.data as {
@@ -1085,7 +1086,7 @@ export async function getTokenMarketDetail(address: string) {
       symbol: price.symbol || tokenMeta?.symbol || null,
       name: price.name || tokenMeta?.name || null,
       decimals: price.decimals ?? tokenMeta?.decimals ?? null,
-      logo: `https://mainnet.qie.digital/assets/${address}/icon.png`,
+      logo: explorerToken?.icon_url ?? null,
     },
     price: {
       usd: price.price_usd,
@@ -1121,7 +1122,7 @@ export async function getTokenMarketDetail(address: string) {
     meta: {
       generated_at: new Date().toISOString(),
       supply_note:
-        "FDV/mcap use supply proxies until ASA total is indexed live",
+        "FDV/mcap use supply proxies until token totalSupply is indexed live",
     },
   };
 

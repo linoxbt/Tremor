@@ -1,19 +1,38 @@
 # Tremor API
 
-Metered, pay-per-request **Algorand** market-data API for the [Algorand Global x402 Challenge](https://algorand.co/global-x402-challenge).
+Metered, pay-per-request **Qie Mainnet** market-data API.
 
-- **Chain scope:** Algorand only (Mainnet for competition; Testnet for dry runs)
-- **Payments:** x402 `exact` scheme via **GoPlausible facilitator**
-- **Discovery:** Bazaar extension + `x402-global-challenge` tag
-- **Stack:** Node.js, TypeScript, Express, Prisma/Postgres, Redis, `@x402/express` + `@x402/avm`
+- **Chain scope:** Qie only — Mainnet (`eip155:1990`) or Testnet (`eip155:1983`)
+- **Payments:** x402 `exact` scheme, EVM (`@x402/evm`), settled in a configurable ERC-20 asset
+- **Discovery:** Bazaar extension (when the configured facilitator supports it)
+- **Stack:** Node.js, TypeScript, Express, Prisma/Postgres, Redis, `@x402/express` + `@x402/evm`
+
+## x402 on Qie — read this before enabling payments
+
+x402's `exact` EVM scheme needs a **facilitator** to verify and settle payments on-chain.
+There is currently **no public facilitator that supports Qie** (`eip155:1990`/`1983`) —
+GoPlausible only covers Algorand/Base/Solana, and the other major hosted facilitators are
+scoped to a handful of well-known EVM chains. Until Qie is added to a public facilitator,
+operators have two options:
+
+1. **Self-host a facilitator.** `@x402/evm` ships the facilitator-side primitives
+   (`@x402/evm/exact/facilitator`) — run them against `QIE_RPC_URL` with a funded relayer
+   key and point `X402_FACILITATOR_URL` at it.
+2. **Leave `X402_FACILITATOR_URL` unset.** The API still boots and advertises correct
+   HTTP 402 payment requirements (price, network, asset) on every `/v1/*` route — clients
+   just can't complete settlement yet. This is the default for local dev.
+
+You must also set `QIE_PAYMENT_ASSET_ADDRESS` to a real deployed ERC-20 contract (e.g. a
+USDC bridge/issuance on Qie) — there is no default, since guessing a token address here
+would risk pointing payers at the wrong contract.
 
 ## Architecture
 
 ```
-Indexer / Tinyman  →  workers  →  Postgres + Redis
-                                      ↓
-                         Express + x402 middleware
-                         /v1/* (paid)   /internal/* (API key)
+Qie RPC + Blockscout + DEX subgraph  →  workers  →  Postgres + Redis
+                                                          ↓
+                                          Express + x402 (EVM exact) middleware
+                                          /v1/* (paid)   /internal/* (API key)
 ```
 
 ## Quick start
@@ -24,7 +43,7 @@ docker compose up -d
 
 cd tremor-api
 cp .env.example .env
-# edit PAYTO_ADDRESS, INTERNAL_API_KEY, NETWORK
+# edit PAYTO_ADDRESS, INTERNAL_API_KEY, NETWORK, QIE_PAYMENT_ASSET_ADDRESS
 
 npm install
 npx prisma db push
@@ -37,7 +56,7 @@ npm run dev
 npm run workers
 ```
 
-Health: `GET http://localhost:4021/health`  
+Health: `GET http://localhost:4021/health`
 Catalog: `GET http://localhost:4021/`
 
 ## Environment
@@ -46,21 +65,24 @@ Catalog: `GET http://localhost:4021/`
 |---|---|
 | `DATABASE_URL` | Postgres connection string |
 | `REDIS_URL` | Redis URL (optional; falls back to DB-only) |
-| `GOPLAUSIBLE_FACILITATOR_URL` | Default `https://facilitator.goplausible.xyz` |
-| `PAYTO_ADDRESS` | Algorand address receiving USDC (must opt-in ASA) |
+| `X402_FACILITATOR_URL` | Self-hosted x402 facilitator for Qie; unset disables settlement |
+| `PAYTO_ADDRESS` | Qie address (0x…) receiving payment |
+| `QIE_PAYMENT_ASSET_ADDRESS` | ERC-20 contract to accept payment in — required to settle |
+| `QIE_PAYMENT_ASSET_SYMBOL` / `QIE_PAYMENT_ASSET_DECIMALS` | Display symbol / decimals for that asset |
 | `NETWORK` | `testnet` or `mainnet` |
 | `INTERNAL_API_KEY` | Bearer token for `/internal/*` |
-| `ALGOD_URL` / `INDEXER_URL` | AlgoNode or your own nodes |
+| `QIE_RPC_URL` / `QIE_EXPLORER_URL` / `QIE_SUBGRAPH_URL` | Qie JSON-RPC, Blockscout, DEX subgraph endpoints |
+| `QIE_FACTORY` / `QIE_ROUTER` / `QIE_WQIE` | Qie DEX factory/router/WQIE contract addresses |
 | `USE_MOCK_DATA` | `true` = seed/jitter mode without live DEX mapping |
 
 ### Network constants
 
 | | Testnet | Mainnet |
 |---|---|---|
-| CAIP-2 | `ALGORAND_TESTNET_CAIP2` | `ALGORAND_MAINNET_CAIP2` |
-| USDC ASA | `10458941` | `31566704` |
+| CAIP-2 | `eip155:1983` | `eip155:1990` |
+| Chain ID | 1983 | 1990 |
 
-## Public endpoints (`/v1`, x402 USDC)
+## Public endpoints (`/v1`, x402)
 
 | Endpoint | Tier |
 |---|---|
@@ -83,20 +105,20 @@ Response envelope:
 ```json
 {
   "data": {},
-  "meta": { "chain": "algorand", "generated_at": "ISO8601", "cache": "hit|miss" }
+  "meta": { "chain": "qie", "generated_at": "ISO8601", "cache": "hit|miss" }
 }
 ```
 
-Use `chain=algorand` (or any path segment — non-`algorand` returns 400).
+Use `chain=qie` (any other value returns 400).
 
 ## Internal routes (`/internal`, no payment)
 
 Auth: `Authorization: Bearer $INTERNAL_API_KEY` or `x-api-key`.
 
-- `GET /internal/stats` — requests, revenue, worker health  
-- `GET /internal/revenue` — endpoint/day breakdown  
-- `GET /internal/pools`, `/internal/tokens`, `/internal/trending`, `/internal/risk`  
-- Mirrors of price / rug-score / holders for the private dashboard  
+- `GET /internal/stats` — requests, revenue, worker health
+- `GET /internal/revenue` — endpoint/day breakdown
+- `GET /internal/pools`, `/internal/tokens`, `/internal/trending`, `/internal/risk`
+- Mirrors of price / rug-score / holders for the private dashboard
 
 ## Workers
 
@@ -105,26 +127,15 @@ Auth: `Authorization: Bearer $INTERNAL_API_KEY` or `x-api-key`.
 | `pollPrices` | 15s | Price/liquidity/volume → Postgres + Redis TTL 20s |
 | `pollNewPairs` | 5m | New pool discovery |
 | `pollHolders` | 1h | Holder snapshots |
-| `pollRisk` | 1h | Risk flags (mint authority, concentration, …) |
-
-## Competition checklist
-
-1. Testnet: `NETWORK=testnet`, USDC ASA 10458941, payTo opted-in  
-2. Mainnet: `NETWORK=mainnet`, USDC ASA 31566704, public HTTPS  
-3. Same `PAYTO_ADDRESS` for all routes (Composite entry rollup)  
-4. Facilitator = GoPlausible only  
-5. `tag: x402-global-challenge` is set in payment `extra`  
-6. Bazaar discovery extension registered  
-7. Complete ≥1 real Mainnet payment; confirm USDC received  
-8. Verify listing under [Bazaar / leaderboard](https://facilitator.goplausible.xyz/dashboard)
+| `pollRisk` | 1h | Risk flags (owner privileges, concentration, …) |
 
 ## Project layout
 
 ```
 src/
   index.ts              # Express entry
-  lib/                  # config, db, redis, algorand client, pricing
-  middleware/           # x402 + internal auth
+  lib/                  # config, db, redis, Qie RPC/explorer/subgraph client, pricing
+  middleware/           # x402 (EVM exact) + internal auth
   routes/               # v1 + internal
   services/market.ts    # query layer
   workers/              # cron pollers

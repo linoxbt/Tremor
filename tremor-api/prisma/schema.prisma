@@ -7,11 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// ASA / native token metadata (Algorand only in v1)
+/// Qie token metadata (ERC-20 contract address, or "0" for native QIE)
 model Token {
   id        String   @id @default(cuid())
   chain     String   @default("qie")
-  /// ASA ID as string; "0" for native ALGO
+  /// ERC-20 contract address (0x…); "0" for native QIE coin
   address   String   @unique
   symbol    String
   name      String
@@ -33,7 +33,7 @@ model Pool {
   poolAddress String   @unique @map("pool_address")
   token0      String
   token1      String
-  dex         String   @default("tinyman")
+  dex         String   @default("qie-dex")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 

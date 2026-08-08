@@ -83,11 +83,19 @@ cd tremor-dashboard
 cp .env.example .env.local
 # NEXT_PUBLIC_API_URL=http://localhost:4021
 # INTERNAL_API_KEY=<same as API>
+# NEXT_PUBLIC_QIE_NETWORK=mainnet
 npm install
 npm run dev -- -H 0.0.0.0 -p 3000
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+**Both** `tremor-api` (`:4021`) and the dashboard must be running. If the UI shows
+`502 /internal/pools` / “API unreachable”, start the API:
+
+```bash
+cd tremor-api && npm run dev
+```
 
 Root helpers:
 
@@ -95,6 +103,8 @@ Root helpers:
 npm run infra
 npm run api:install && npm run dash:install
 npm run api:db
+npm run dev            # starts API + workers + dashboard (scripts/dev.sh)
+# or separately:
 npm run api:dev
 npm run api:workers
 npm run dash:dev
@@ -111,7 +121,8 @@ npm run dash:dev
 | `NETWORK` | `testnet` \| `mainnet` |
 | `INTERNAL_API_KEY` | Bearer key for `/internal/*` |
 | `PAYTO_ADDRESS` | Settlement address for x402 |
-| `GOPLAUSIBLE_FACILITATOR_URL` | x402 facilitator |
+| `X402_FACILITATOR_URL` | Self-hosted x402 facilitator for Qie (`eip155:1990`/`1983`) — no public facilitator supports Qie yet, so this is unset by default and settlement is disabled until one is run |
+| `QIE_PAYMENT_ASSET_ADDRESS` | ERC-20 contract to accept x402 payment in — required to settle, no default |
 | `USE_MOCK_DATA` | `true` = seed jitter; `false` = live pollers |
 
 ### `tremor-dashboard`
@@ -135,7 +146,7 @@ Root [`netlify.toml`](./netlify.toml) builds `tremor-dashboard` with `@netlify/p
 
 ## Public API (paid)
 
-Unauthenticated `GET /v1/...` returns **HTTP 402** with x402 payment instructions when the facilitator is configured.
+Unauthenticated `GET /v1/...` returns **HTTP 402** with x402 payment instructions. Settlement itself requires `X402_FACILITATOR_URL` to point at a facilitator that supports Qie (`eip155:1990`/`1983`) — see [`tremor-api/README.md`](./tremor-api/README.md#x402-on-qie--read-this-before-enabling-payments) for why that currently means self-hosting one.
 
 | Tier | Price | Examples |
 |------|-------|----------|
@@ -150,7 +161,7 @@ Response shape:
 {
   "data": {},
   "meta": {
-    "chain": "algorand",
+    "chain": "qie",
     "generated_at": "…",
     "cache": "hit|miss"
   }

@@ -239,7 +239,7 @@ export default function TokenDetailPage() {
         <div className="space-y-3">
           <Card className="p-3">
             <div className="flex flex-wrap items-start gap-3">
-              <TokenAvatar symbol={symbol} address={address} size={48} />
+              <TokenAvatar symbol={symbol} address={address} logo={data.token.logo} size={48} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-[20px] font-semibold tracking-tight text-white">

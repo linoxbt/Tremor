@@ -1,6 +1,6 @@
 import { prisma } from "../lib/db.js";
 import { config } from "../lib/config.js";
-import { getAsset, analyzeAssetRisk } from "../lib/algorand.js";
+import { analyzeTokenRisk } from "../lib/qie-chain.js";
 import { num } from "../lib/envelope.js";
 import { recordWorkerRun } from "./util.js";
 
@@ -23,35 +23,28 @@ export async function pollRisk(): Promise<void> {
       });
 
       if (!config.useMockData) {
-        const asset = await getAsset(token.address);
-        if (asset) {
-          const risk = analyzeAssetRisk(asset);
-          if (risk.mintAuthorityPresent) {
-            await prisma.riskFlag.create({
-              data: {
-                tokenAddress: token.address,
-                flagType: "mint_authority",
-                severity: "high",
-                detailsJson: {
-                  manager: asset.params.manager,
-                  freeze: asset.params.freeze,
-                  clawback: asset.params.clawback,
-                },
-              },
-            });
-            flagged++;
-          }
-          if (!risk.ownershipRenounced) {
-            await prisma.riskFlag.create({
-              data: {
-                tokenAddress: token.address,
-                flagType: "ownership_active",
-                severity: "medium",
-                detailsJson: { manager: asset.params.manager },
-              },
-            });
-            flagged++;
-          }
+        const risk = await analyzeTokenRisk(token.address);
+        if (risk.mintAuthorityPresent) {
+          await prisma.riskFlag.create({
+            data: {
+              tokenAddress: token.address,
+              flagType: "mint_authority",
+              severity: "high",
+              detailsJson: { owner: risk.ownerAddress },
+            },
+          });
+          flagged++;
+        }
+        if (!risk.ownershipRenounced) {
+          await prisma.riskFlag.create({
+            data: {
+              tokenAddress: token.address,
+              flagType: "ownership_active",
+              severity: "medium",
+              detailsJson: { owner: risk.ownerAddress },
+            },
+          });
+          flagged++;
         }
       }
 

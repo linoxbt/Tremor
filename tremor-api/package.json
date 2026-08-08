@@ -1,7 +1,7 @@
 {
   "name": "tremor-api",
   "version": "1.0.0",
-  "description": "Tremor \u2014 metered Algorand market-data API via x402 (GoPlausible facilitator)",
+  "description": "Tremor — metered Qie market-data API via x402",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -19,8 +19,8 @@
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",
-    "@x402/avm": "^2.20.0",
     "@x402/core": "^2.20.0",
+    "@x402/evm": "^2.21.0",
     "@x402/express": "^2.20.0",
     "@x402/extensions": "^2.20.0",
     "cors": "^2.8.5",
