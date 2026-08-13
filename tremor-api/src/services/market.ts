@@ -3,7 +3,14 @@ import { prisma } from "../lib/db.js";
 import { cacheGet, cacheSet } from "../lib/redis.js";
 import { config } from "../lib/config.js";
 import { num } from "../lib/envelope.js";
-import { analyzeTokenRisk, getTokenHolders, getExplorerToken } from "../lib/qie-chain.js";
+import {
+  analyzeTokenRisk,
+  getTokenHolders,
+  getExplorerToken,
+  getTokenTotalSupply,
+  getLpLockInfo,
+  getRecentTransfers,
+} from "../lib/qie-chain.js";
 
 const STABLE_SYMBOL_RE = /qusdc|usdc|usdt|dai/i;
 
@@ -38,6 +45,8 @@ type SnapRow = {
   liquidity_usd: Prisma.Decimal | number;
   volume_24h: Prisma.Decimal | number;
   ts: Date;
+  /** "live" (real subgraph data) or "jitter" (synthetic fallback) — see pollPrices.ts */
+  source: string;
 };
 
 /**
@@ -57,10 +66,10 @@ async function latestSnapshotsByPool(
 ): Promise<Map<string, SnapRow>> {
   if (!poolAddresses?.length) return new Map();
   const rows = await prisma.$queryRaw<SnapRow[]>`
-    SELECT p.pool_address, s.price, s.liquidity_usd, s.volume_24h, s.ts
+    SELECT p.pool_address, s.price, s.liquidity_usd, s.volume_24h, s.ts, s.source
     FROM unnest(ARRAY[${Prisma.join(poolAddresses)}]::text[]) AS p(pool_address)
     CROSS JOIN LATERAL (
-      SELECT price, liquidity_usd, volume_24h, ts
+      SELECT price, liquidity_usd, volume_24h, ts, source
       FROM price_snapshots ps
       WHERE ps.pool_address = p.pool_address
       ORDER BY ts DESC
@@ -79,10 +88,10 @@ async function snapshots24hAgo(
   if (!poolAddresses?.length) return new Map();
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const rows = await prisma.$queryRaw<SnapRow[]>`
-    SELECT p.pool_address, s.price, s.liquidity_usd, s.volume_24h, s.ts
+    SELECT p.pool_address, s.price, s.liquidity_usd, s.volume_24h, s.ts, s.source
     FROM unnest(ARRAY[${Prisma.join(poolAddresses)}]::text[]) AS p(pool_address)
     CROSS JOIN LATERAL (
-      SELECT price, liquidity_usd, volume_24h, ts
+      SELECT price, liquidity_usd, volume_24h, ts, source
       FROM price_snapshots ps
       WHERE ps.pool_address = p.pool_address AND ps.ts <= ${cutoff}
       ORDER BY ts DESC
@@ -101,6 +110,7 @@ function changePct(price: number, prev: number): number {
 
 export async function getTokenPrice(chain: string, address: string) {
   assertChain(chain);
+  address = address.toLowerCase();
   const key = `price:${chain}:${address}`;
   const hit = await cacheGet<unknown>(key);
   if (hit) return { data: hit, cache: "hit" as const };
@@ -137,6 +147,7 @@ export async function getTokenPrice(chain: string, address: string) {
     liquidity_usd: number;
     volume_24h: number;
     is_base: boolean;
+    data_source: string;
   }[] = [];
 
   // Batch latest snapshots — price is USD of token0; only use when queried token is base.
@@ -157,6 +168,7 @@ export async function getTokenPrice(chain: string, address: string) {
       liquidity_usd: liq,
       volume_24h: vol,
       is_base: isBase,
+      data_source: snap.source,
     });
   }
 
@@ -196,6 +208,7 @@ export async function getTokenPrice(chain: string, address: string) {
 
 export async function getPair(chain: string, pairAddress: string) {
   assertChain(chain);
+  pairAddress = pairAddress.toLowerCase();
   const key = `pair:${chain}:${pairAddress}`;
   const hit = await cacheGet<unknown>(key);
   if (hit) return { data: hit, cache: "hit" as const };
@@ -249,6 +262,7 @@ export async function getPair(chain: string, pairAddress: string) {
     fdv_usd: null as number | null,
     created_at: pool.createdAt.toISOString(),
     as_of: snap?.ts?.toISOString() ?? null,
+    data_source: snap?.source ?? null,
   };
   await cacheSet(key, data, config.cacheTtlSeconds.pair);
   return { data, cache: "miss" as const };
@@ -256,6 +270,7 @@ export async function getPair(chain: string, pairAddress: string) {
 
 export async function getTokenPools(chain: string, address: string) {
   assertChain(chain);
+  address = address.toLowerCase();
   const pools = await prisma.pool.findMany({
     where: {
       chain,
@@ -372,7 +387,7 @@ export async function search(q: string) {
       OR: [
         { symbol: { contains: query, mode: "insensitive" } },
         { name: { contains: query, mode: "insensitive" } },
-        { address: { contains: query } },
+        { address: { contains: query, mode: "insensitive" } },
       ],
     },
     take: 20,
@@ -383,8 +398,8 @@ export async function search(q: string) {
       chain: "qie",
       OR: [
         { poolAddress: { contains: query, mode: "insensitive" } },
-        { token0: { contains: query } },
-        { token1: { contains: query } },
+        { token0: { contains: query, mode: "insensitive" } },
+        { token1: { contains: query, mode: "insensitive" } },
       ],
     },
     take: 20,
@@ -419,6 +434,7 @@ export async function getOhlcv(
   limit = 100,
 ) {
   assertChain(chain);
+  pairAddress = pairAddress.toLowerCase();
   const allowed = new Set(["1m", "5m", "1h", "1d"]);
   if (!allowed.has(tf)) {
     const err = new Error("Invalid timeframe. Use 1m|5m|1h|1d");
@@ -480,6 +496,7 @@ export async function getOhlcv(
 
 export async function getHolders(chain: string, address: string) {
   assertChain(chain);
+  address = address.toLowerCase();
   const key = `holders:${address}`;
   const hit = await cacheGet<unknown>(key);
   if (hit) return { data: hit, cache: "hit" as const };
@@ -526,6 +543,7 @@ export async function getHolders(chain: string, address: string) {
 
 export async function getLiquidityHistory(chain: string, pairAddress: string) {
   assertChain(chain);
+  pairAddress = pairAddress.toLowerCase();
   const rows = await prisma.liquidityHistory.findMany({
     where: { poolAddress: pairAddress },
     orderBy: { ts: "asc" },
@@ -546,6 +564,7 @@ export async function getLiquidityHistory(chain: string, pairAddress: string) {
 
 export async function getVolumeProfile(chain: string, address: string) {
   assertChain(chain);
+  address = address.toLowerCase();
   const pools = await prisma.pool.findMany({
     where: {
       chain,
@@ -585,6 +604,7 @@ export async function getVolumeProfile(chain: string, address: string) {
 
 export async function getRugScore(chain: string, address: string) {
   assertChain(chain);
+  address = address.toLowerCase();
   const key = `rug:${address}`;
   const hit = await cacheGet<unknown>(key);
   if (hit) return { data: hit, cache: "hit" as const };
@@ -601,24 +621,62 @@ export async function getRugScore(chain: string, address: string) {
 
   let mintAuthorityPresent = false;
   let ownershipRenounced = true;
-  let lpLockScore = 70; // default assumed partial
+  let lpLockScore = 70; // fallback only when lock status can't be determined on-chain
+  let lpLockDetail: Record<string, unknown> = { assumed: true };
 
   if (!config.useMockData && address !== "0") {
     const risk = await analyzeTokenRisk(address);
     mintAuthorityPresent = risk.mintAuthorityPresent;
     ownershipRenounced = risk.ownershipRenounced;
+
+    // Real LP-lock check: inspect the deepest pool's own LP-token supply for
+    // what share sits at a burn address (see getLpLockInfo for why that's
+    // the standard on-chain "is liquidity locked" signal).
+    const pools = await prisma.pool.findMany({
+      where: { chain, OR: [{ token0: address }, { token1: address }] },
+    });
+    if (pools.length) {
+      const latest = await latestSnapshotsByPool(pools.map((p) => p.poolAddress));
+      const deepest = pools.reduce((best, p) => {
+        const liq = num(latest.get(p.poolAddress)?.liquidity_usd);
+        const bestLiq = num(latest.get(best.poolAddress)?.liquidity_usd);
+        return liq > bestLiq ? p : best;
+      }, pools[0]);
+      const lock = await getLpLockInfo(deepest.poolAddress);
+      if (lock.lockedRatio !== null) {
+        lpLockScore = Math.round(Math.min(100, lock.lockedRatio * 100));
+        lpLockDetail = {
+          pool_address: deepest.poolAddress,
+          locked_pct: Number((lock.lockedRatio * 100).toFixed(2)),
+          burned_balance: lock.burnedBalance?.toString() ?? null,
+          assumed: false,
+        };
+      }
+    }
   } else {
     mintAuthorityPresent = flags.some((f) => f.flagType === "mint_authority");
     ownershipRenounced = !mintAuthorityPresent;
-    if (flags.some((f) => f.flagType === "lp_unlocked")) lpLockScore = 35;
-    if (flags.some((f) => f.flagType === "lp_locked")) lpLockScore = 95;
+    if (flags.some((f) => f.flagType === "lp_unlocked")) {
+      lpLockScore = 35;
+      lpLockDetail = { assumed: true, mock: true };
+    }
+    if (flags.some((f) => f.flagType === "lp_locked")) {
+      lpLockScore = 95;
+      lpLockDetail = { assumed: true, mock: true };
+    }
   }
 
   const priceInfo = await getTokenPrice(chain, address);
   const liq = (priceInfo.data as { liquidity_usd?: number }).liquidity_usd ?? 0;
   const price = (priceInfo.data as { price_usd?: number | null }).price_usd ?? 0;
-  // crude mcap proxy
-  const mcapProxy = price * 1_000_000_000; // placeholder without total supply decode
+  const decimals = (priceInfo.data as { decimals?: number | null }).decimals ?? 18;
+  // Real on-chain totalSupply when available; native coin (no contract) keeps
+  // the old proxy since there's no contract to query.
+  const realSupply = await getTokenTotalSupply(address);
+  const mcapProxy =
+    realSupply !== null
+      ? price * (Number(realSupply) / 10 ** decimals)
+      : price * 1_000_000_000;
   const liqDepthRatio = mcapProxy > 0 ? Math.min(1, liq / Math.max(mcapProxy * 0.05, 1)) : 0.5;
 
   // Factor scores 0-100 (higher = safer)
@@ -626,9 +684,7 @@ export async function getRugScore(chain: string, address: string) {
     lp_lock: {
       score: lpLockScore,
       weight: 0.25,
-      detail: flags.find((f) => f.flagType.startsWith("lp_"))?.detailsJson ?? {
-        assumed: true,
-      },
+      detail: lpLockDetail,
     },
     mint_authority: {
       score: mintAuthorityPresent ? 15 : 95,
@@ -695,24 +751,78 @@ export async function getWhaleActivity(
   hours = 24,
 ) {
   assertChain(chain);
-  // Without a full tx indexer pipeline, surface large holders as "watch list"
-  // plus any recent payment-sized transfers we can't see — synthetic from holders.
+  address = address.toLowerCase();
   const holdersResult = await getHolders(chain, address);
   const holdersList = (
     holdersResult.data as {
       holders: { address: string; balance: number; pct_of_supply: number }[];
     }
   ).holders;
-  const whales = holdersList
+  const bigHolders = holdersList
     .filter((h: { pct_of_supply: number }) => h.pct_of_supply >= 1)
-    .slice(0, 10)
-    .map((h: { address: string; pct_of_supply: number }, i: number) => ({
+    .slice(0, 10);
+
+  type WalletMove = { direction: "in" | "out"; value: bigint; blockNumber: number };
+  const transfersByWallet = new Map<string, WalletMove>();
+  let dataSource: "onchain_transfer_logs" | "holder_snapshot_only" = "holder_snapshot_only";
+  let latestBlock = 0;
+  let blockRate: number | null = null;
+
+  if (!config.useMockData && address !== "0" && bigHolders.length) {
+    const watched = new Set(bigHolders.map((h) => h.address.toLowerCase()));
+    const result = await getRecentTransfers(address, hours, 1000);
+    latestBlock = result.latestBlock;
+    blockRate = result.blockRate;
+    if (result.transfers.length) {
+      dataSource = "onchain_transfer_logs";
+      // Keep only the most recent transfer touching each watched wallet.
+      for (const t of result.transfers) {
+        if (watched.has(t.from)) {
+          const prev = transfersByWallet.get(t.from);
+          if (!prev || t.blockNumber > prev.blockNumber) {
+            transfersByWallet.set(t.from, { direction: "out", value: t.value, blockNumber: t.blockNumber });
+          }
+        }
+        if (watched.has(t.to)) {
+          const prev = transfersByWallet.get(t.to);
+          if (!prev || t.blockNumber > prev.blockNumber) {
+            transfersByWallet.set(t.to, { direction: "in", value: t.value, blockNumber: t.blockNumber });
+          }
+        }
+      }
+    }
+  }
+
+  // Only fetch price/decimals when we actually have real transfers to price.
+  let priceUsd = 0;
+  let decimals = 18;
+  if (dataSource === "onchain_transfer_logs") {
+    const priceInfo = await getTokenPrice(chain, address);
+    priceUsd = (priceInfo.data as { price_usd?: number | null }).price_usd ?? 0;
+    decimals = (priceInfo.data as { decimals?: number | null }).decimals ?? 18;
+  }
+
+  const whales = bigHolders.map((h) => {
+    const move = transfersByWallet.get(h.address.toLowerCase());
+    if (!move) {
+      return {
+        wallet: h.address,
+        pct_of_supply: h.pct_of_supply,
+        estimated_move_usd: null as number | null,
+        direction: null as "in" | "out" | null,
+        hours_ago: null as number | null,
+      };
+    }
+    const amount = Number(move.value) / 10 ** decimals;
+    const hoursAgo = blockRate ? (latestBlock - move.blockNumber) / blockRate / 3600 : null;
+    return {
       wallet: h.address,
       pct_of_supply: h.pct_of_supply,
-      estimated_move_usd: null as number | null,
-      direction: i % 3 === 0 ? "out" : "hold",
-      hours_ago: Math.floor(Math.random() * hours),
-    }));
+      estimated_move_usd: priceUsd > 0 ? Number((amount * priceUsd).toFixed(2)) : null,
+      direction: move.direction,
+      hours_ago: hoursAgo !== null ? Number(hoursAgo.toFixed(2)) : null,
+    };
+  });
 
   return {
     data: {
@@ -720,10 +830,30 @@ export async function getWhaleActivity(
       address,
       window_hours: hours,
       whales,
-      note: "Full whale transfer indexing requires continuous indexer sync; showing concentration-based whale set",
+      data_source: dataSource,
+      note:
+        dataSource === "onchain_transfer_logs"
+          ? "direction/hours_ago/estimated_move_usd come from real on-chain Transfer events for each large holder in this window; null means no matching transfer was found in range"
+          : "No on-chain transfer data available for this window (mock mode, native coin, or empty log range) — showing holder concentration only, no activity fields fabricated",
     },
     cache: "miss" as const,
   };
+}
+
+export const WATCH_ENDPOINTS = [
+  "price",
+  "rug-score",
+  "holders",
+  "pools",
+  "volume-profile",
+  "whale-activity",
+] as const;
+export type WatchEndpoint = (typeof WATCH_ENDPOINTS)[number];
+
+function badRequest(message: string): never {
+  const err = new Error(message);
+  (err as Error & { status: number }).status = 400;
+  throw err;
 }
 
 export async function createWatch(input: {
@@ -735,14 +865,34 @@ export async function createWatch(input: {
 }) {
   const chain = input.chain || "qie";
   assertChain(chain);
+
+  if (input.target_type !== "token" && input.target_type !== "pair") {
+    badRequest('target_type must be "token" or "pair"');
+  }
+  const endpoints = input.endpoints?.length
+    ? input.endpoints
+    : ["price", "rug-score", "holders"];
+  const invalid = endpoints.filter((e) => !(WATCH_ENDPOINTS as readonly string[]).includes(e));
+  if (invalid.length) {
+    badRequest(`Invalid endpoints: ${invalid.join(", ")}. Allowed: ${WATCH_ENDPOINTS.join(", ")}`);
+  }
+  if (input.webhook_url) {
+    let ok = false;
+    try {
+      const u = new URL(input.webhook_url);
+      ok = u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      ok = false;
+    }
+    if (!ok) badRequest("webhook_url must be a valid http(s) URL");
+  }
+
   const watch = await prisma.watch.create({
     data: {
       chain,
       targetType: input.target_type,
-      targetAddress: input.target_address,
-      endpoints: input.endpoints?.length
-        ? input.endpoints
-        : ["price", "rug-score", "holders"],
+      targetAddress: input.target_address.toLowerCase(),
+      endpoints,
       webhookUrl: input.webhook_url,
     },
   });
@@ -774,6 +924,7 @@ export async function listPools() {
   const pools = await prisma.pool.findMany({
     where: { chain: "qie" },
     orderBy: { createdAt: "desc" },
+    take: 500, // bound worst-case growth; this is a whole-list dashboard read, not paginated
   });
   const addrs = pools.map((p) => p.poolAddress);
   const [latest, prevMap] = await Promise.all([
@@ -821,6 +972,7 @@ export async function listTokensWithRisk() {
     prisma.token.findMany({
       where: { chain: "qie" },
       orderBy: { symbol: "asc" },
+      take: 500, // bound worst-case growth; this is a whole-list dashboard read, not paginated
     }),
     // Top-10 holder % per token in one query
     prisma.$queryRaw<{ token_address: string; top10: Prisma.Decimal | number }[]>`
@@ -898,6 +1050,7 @@ export async function listRiskFlags() {
  */
 export async function getTokenMarketDetail(address: string) {
   assertChain("qie");
+  address = address.toLowerCase();
   const cacheKey = `token:detail:${address}`;
   const mem = memGet<unknown>(cacheKey);
   if (mem) return mem;
@@ -1068,11 +1221,17 @@ export async function getTokenMarketDetail(address: string) {
   const buys = Math.round(txns24h * ((vol.pressure?.buy_pct || 50) / 100));
   const sells = Math.max(0, txns24h - buys);
 
-  // Rough FDV / mcap proxy (list view scale)
+  // FDV from real on-chain totalSupply when available; native QIE has no
+  // contract to query, so it keeps a rough proxy. mcap still assumes a 65%
+  // circulating/total ratio — that split isn't derivable on-chain without a
+  // vesting/lock registry, so it remains an approximation either way.
   const px = price.price_usd || 0;
-  const supplyProxy =
-    address === "0" ? 10_000_000_000 : 1_000_000_000; // demo supply when unknown
-  const fdv_usd = px * supplyProxy;
+  const realSupply = await getTokenTotalSupply(address);
+  const supply =
+    realSupply !== null
+      ? Number(realSupply) / 10 ** (price.decimals ?? 18)
+      : 10_000_000_000; // native QIE only — no contract totalSupply to read
+  const fdv_usd = px * supply;
   const mcap_usd = fdv_usd * 0.65;
 
   const holders = holdersRes.data as {
@@ -1123,7 +1282,7 @@ export async function getTokenMarketDetail(address: string) {
     meta: {
       generated_at: new Date().toISOString(),
       supply_note:
-        "FDV/mcap use supply proxies until token totalSupply is indexed live",
+        "FDV uses live on-chain totalSupply (native QIE excepted — no contract to query); mcap still assumes a 65% circulating ratio, which isn't derivable on-chain",
     },
   };
 
@@ -1162,7 +1321,7 @@ export async function getStats() {
       prisma.token.count({ where: { chain: "qie" } }),
     ]);
 
-  const workers = ["pollPrices", "pollNewPairs", "pollHolders", "pollRisk"];
+  const workers = ["pollPrices", "pollNewPairs", "pollHolders", "pollRisk", "pollWatches"];
   const workerHealth = await Promise.all(
     workers.map(async (w) => {
       const last = await prisma.workerRun.findFirst({
@@ -1197,44 +1356,37 @@ export async function getStats() {
 
 export async function getRevenueBreakdown(days = 30) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-  const logs = await prisma.paymentsLog.findMany({
-    where: { ts: { gte: since } },
-    orderBy: { ts: "asc" },
-  });
 
-  const byEndpoint: Record<
-    string,
-    { calls: number; revenue: number }
-  > = {};
-  const byDay: Record<string, { calls: number; revenue: number }> = {};
-
-  for (const l of logs) {
-    const amt = parseFloat(l.amount || "0");
-    if (!byEndpoint[l.endpoint]) byEndpoint[l.endpoint] = { calls: 0, revenue: 0 };
-    byEndpoint[l.endpoint].calls += 1;
-    byEndpoint[l.endpoint].revenue += amt;
-
-    const day = l.ts.toISOString().slice(0, 10);
-    if (!byDay[day]) byDay[day] = { calls: 0, revenue: 0 };
-    byDay[day].calls += 1;
-    byDay[day].revenue += amt;
-  }
+  // Aggregate in SQL rather than loading every payments_log row into JS —
+  // this scales with the number of distinct endpoints/days, not call volume.
+  const [byEndpointRows, byDayRows] = await Promise.all([
+    prisma.$queryRaw<{ endpoint: string; calls: bigint; revenue: number }[]>`
+      SELECT endpoint, COUNT(*)::bigint AS calls, COALESCE(SUM(amount::numeric), 0)::float8 AS revenue
+      FROM payments_log
+      WHERE ts >= ${since}
+      GROUP BY endpoint
+      ORDER BY revenue DESC
+    `,
+    prisma.$queryRaw<{ day: string; calls: bigint; revenue: number }[]>`
+      SELECT to_char(ts, 'YYYY-MM-DD') AS day, COUNT(*)::bigint AS calls, COALESCE(SUM(amount::numeric), 0)::float8 AS revenue
+      FROM payments_log
+      WHERE ts >= ${since}
+      GROUP BY day
+      ORDER BY day ASC
+    `,
+  ]);
 
   return {
     days,
-    by_endpoint: Object.entries(byEndpoint)
-      .map(([endpoint, v]) => ({
-        endpoint,
-        calls: v.calls,
-        revenue_usdc: Number(v.revenue.toFixed(6)),
-      }))
-      .sort((a, b) => b.revenue_usdc - a.revenue_usdc),
-    by_day: Object.entries(byDay)
-      .map(([date, v]) => ({
-        date,
-        calls: v.calls,
-        revenue_usdc: Number(v.revenue.toFixed(6)),
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date)),
+    by_endpoint: byEndpointRows.map((r) => ({
+      endpoint: r.endpoint,
+      calls: Number(r.calls),
+      revenue_usdc: Number(r.revenue.toFixed(6)),
+    })),
+    by_day: byDayRows.map((r) => ({
+      date: r.day,
+      calls: Number(r.calls),
+      revenue_usdc: Number(r.revenue.toFixed(6)),
+    })),
   };
 }

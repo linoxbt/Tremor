@@ -25,7 +25,7 @@ export default function TrendingPage() {
   if (error) return <ErrorBox message={String(error.message || error)} />;
   if (!data) return null;
 
-  const movers = data.trending.trending ?? [];
+  const movers = data.trending?.trending ?? [];
   const top3 = movers.slice(0, 3);
 
   return (
@@ -47,8 +47,8 @@ export default function TrendingPage() {
         {top3.map((p, i) => {
           const id = p.pool_address || p.pair_address || "";
           if (!id) return null;
-          const s0 = tokenLabel(p.token0);
-          const s1 = tokenLabel(p.token1);
+          const s0 = p.symbol0 || tokenLabel(p.token0);
+          const s1 = p.symbol1 || tokenLabel(p.token1);
           const up = p.change_24h_pct >= 0;
           return (
             <Link key={id} href={`/pair/${encodeURIComponent(id)}`}>

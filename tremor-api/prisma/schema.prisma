@@ -8,6 +8,18 @@ datasource db {
 }
 
 /// Qie token metadata (ERC-20 contract address, or "0" for native QIE)
+///
+/// SINGLE-CHAIN CONSTRAINT (known, deliberate limitation — not a migration
+/// in progress): `address` is globally unique on its own, not just per-chain,
+/// which makes the `[chain, address]` composite constraint below unenforceable
+/// as a real multi-chain key — a second chain sharing a hex address with an
+/// existing Qie one would collide. `chain` is enforced application-side today
+/// (see assertChain() in services/market.ts, which hard-rejects every value
+/// but "qie"), so this is harmless as long as Tremor stays single-chain. If a
+/// second chain is ever added, this model needs re-keying to a true composite
+/// primary key ([chain, address]) with every relation (Holder.token,
+/// RiskFlag.token below) updated to reference the composite — do that as a
+/// dedicated migration before onboarding a second chain, not incrementally.
 model Token {
   id        String   @id @default(cuid())
   chain     String   @default("qie")
@@ -27,6 +39,7 @@ model Token {
   @@map("tokens")
 }
 
+/// Same single-chain constraint as Token above applies to `poolAddress`.
 model Pool {
   id          String   @id @default(cuid())
   chain       String   @default("qie")
@@ -54,6 +67,10 @@ model PriceSnapshot {
   price        Decimal  @db.Decimal(36, 18)
   liquidityUsd Decimal  @default(0) @map("liquidity_usd") @db.Decimal(36, 8)
   volume24h    Decimal  @default(0) @map("volume_24h") @db.Decimal(36, 8)
+  /// "live" (real subgraph data) or "jitter" (synthetic fallback when the
+  /// subgraph was unreachable) — lets API consumers detect fabricated data
+  /// instead of it being indistinguishable from real prices.
+  source       String   @default("live")
   ts           DateTime @default(now())
 
   pool Pool @relation(fields: [poolAddress], references: [poolAddress], onDelete: Cascade)

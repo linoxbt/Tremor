@@ -60,7 +60,7 @@ function TokensInner() {
             <span className="text-[9px] font-semibold uppercase tracking-[0.12em]">Assets</span>
           </div>
           <h1 className="page-title">All tokens</h1>
-          <p className="page-sub">{rows.length} ASAs tracked · click any row for full page</p>
+          <p className="page-sub">{rows.length} tokens tracked · click any row for full page</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <input

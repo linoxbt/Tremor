@@ -3,7 +3,20 @@ import { NextRequest, NextResponse } from "next/server";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4021";
 const API_KEY = process.env.INTERNAL_API_KEY || "";
 
+/**
+ * Every /internal/* route segment we ever proxy to is a plain identifier
+ * (route name, 0x address, or cuid) — no dots, slashes, or encoded chars.
+ * Rejecting anything outside that allowlist blocks path traversal (e.g.
+ * "..%2F..%2Fv1%2F...") from escaping the intended /internal/ prefix.
+ */
+function isSafeSegment(seg: string): boolean {
+  return /^[a-zA-Z0-9_-]+$/.test(seg);
+}
+
 async function proxy(req: NextRequest, path: string[]) {
+  if (!path.length || !path.every(isSafeSegment)) {
+    return NextResponse.json({ error: "Invalid path" }, { status: 400 });
+  }
   const target = `${API_URL}/internal/${path.join("/")}${req.nextUrl.search}`;
   try {
     const res = await fetch(target, {

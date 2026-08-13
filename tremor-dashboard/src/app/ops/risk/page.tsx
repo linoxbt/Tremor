@@ -64,7 +64,18 @@ export default function OpsRiskPage() {
                 const isOpen = open === f.id;
                 return (
                   <Fragment key={f.id}>
-                    <tr onClick={() => setOpen(isOpen ? null : f.id)}>
+                    <tr
+                      onClick={() => setOpen(isOpen ? null : f.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setOpen(isOpen ? null : f.id);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      aria-expanded={isOpen}
+                    >
                       <td>
                         <div className="font-medium text-cs-accent">{f.symbol || "—"}</div>
                         <div className="text-[11px] text-cs-dim">

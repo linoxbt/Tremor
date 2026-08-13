@@ -305,6 +305,33 @@ export async function logPayment(opts: {
 /**
  * Middleware that records a payments_log row when the request includes payment headers.
  */
+/**
+ * Best-effort payer extraction from the client's own signed payment payload
+ * (base64url(JSON), per the x402 wire format). This is the payer's *claim*,
+ * available before settlement — unlike a settlement tx hash, which genuinely
+ * doesn't exist yet at this point in the request (see the module doc comment
+ * on payment-timing above).
+ */
+function decodePayerAddress(paymentHeader: string): string | null {
+  try {
+    const json = JSON.parse(
+      Buffer.from(paymentHeader, "base64").toString("utf8"),
+    ) as {
+      payload?: {
+        authorization?: { from?: string };
+        permit2Authorization?: { from?: string };
+      };
+    };
+    return (
+      json.payload?.authorization?.from ??
+      json.payload?.permit2Authorization?.from ??
+      null
+    );
+  } catch {
+    return null;
+  }
+}
+
 export const paymentLogger: RequestHandler = async (req, res, next) => {
   const paymentHeader =
     (req.headers["payment-signature"] as string) ||
@@ -335,9 +362,22 @@ export const paymentLogger: RequestHandler = async (req, res, next) => {
         amount = PRICE_TIERS.low.amountUsd.toString();
       }
 
+      // NOTE on timing: @x402/express settles payment *after* this handler's
+      // next() resolves (verified against the installed SDK — settlement
+      // happens in the outer middleware frame once this call stack unwinds),
+      // and its onAfterSettle/onSettleFailure hooks are registered-but-never-
+      // invoked in this SDK version (confirmed: grepping the built SDK finds
+      // no caller for either hooks array). There is no reliable extension
+      // point to defer this log until settlement is confirmed without patching
+      // node_modules. txId is therefore left null — a settlement tx hash
+      // genuinely doesn't exist yet at this point — and this log should be
+      // read as "a signed payment claim accompanied a successful response,"
+      // not "settlement was confirmed," until a future SDK version exposes a
+      // working post-settlement hook.
       void logPayment({
         endpoint: `${req.method} ${path}`,
         amount,
+        payerAddress: decodePayerAddress(paymentHeader),
         requestId: (req.headers["x-request-id"] as string) || uuidv4(),
       });
     }

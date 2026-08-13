@@ -18,10 +18,9 @@ export const config = {
   network: isMainnet ? ("mainnet" as const) : ("testnet" as const),
   isMainnet,
 
-  databaseUrl: required(
-    "DATABASE_URL",
-    "postgresql://tremor:tremor@localhost:5436/tremor",
-  ),
+  // No fallback: a deploy that forgets DATABASE_URL should fail fast at startup,
+  // not silently try to connect to a hardcoded local dev Postgres.
+  databaseUrl: required("DATABASE_URL"),
   redisUrl: process.env.REDIS_URL || "redis://localhost:6380",
 
   // No public x402 facilitator supports Qie (eip155:1990/1983) today — GoPlausible is
@@ -31,7 +30,10 @@ export const config = {
   payTo:
     process.env.PAYTO_ADDRESS ||
     "0x0000000000000000000000000000000000000000",
-  internalApiKey: process.env.INTERNAL_API_KEY || "dev-internal-key-change-me",
+  // No fallback: a guessable default here would mean the entire /internal/*
+  // surface (revenue, payer addresses, risk data) silently opens to the public
+  // the moment an operator forgets to set this.
+  internalApiKey: required("INTERNAL_API_KEY"),
 
   // Qie Mainnet (1990) / Testnet (1983)
   chainId: isMainnet ? 1990 : 1983,
@@ -48,23 +50,11 @@ export const config = {
     (isMainnet
       ? "https://graphql.qie.digital/subgraphs/name/qie-dex/dex"
       : process.env.QIE_TESTNET_SUBGRAPH || ""),
-  factory:
-    process.env.QIE_FACTORY ||
-    (isMainnet
-      ? "0x8E23128a5511223bE6c0d64106e2D4508C08398C"
-      : "0x2ed06abbbf2504bf37da1b178d9c05a2a971ae7c"),
-  router:
-    process.env.QIE_ROUTER ||
-    (isMainnet
-      ? "0x08cd2e72e156D8563B4351eb4065C262A9f553Ef"
-      : "0x3Fb7f50B6D1472b65996E03edf00cAF105254Ad3"),
   wqie:
     process.env.QIE_WQIE ||
     (isMainnet
       ? "0x0087904D95BEe9E5F24dc8852804b547981A9139"
       : "0x37ce3e8d590c0d37c088bbbb14641463601d6056"),
-  dexSwapUrl:
-    process.env.QIE_DEX_URL || "https://www.swap.dex.qie.digital/swap",
 
   // x402 CAIP-2 network id for the "exact" EVM scheme (eip155:<chainId>)
   x402Network: `eip155:${isMainnet ? 1990 : 1983}`,

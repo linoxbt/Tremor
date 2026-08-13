@@ -19,23 +19,26 @@ export async function pollHolders(): Promise<void> {
         if (!balances.length) continue;
         const total =
           balances.reduce((s, b) => s + BigInt(b.amount || "0"), 0n) || 1n;
-        await prisma.holder.deleteMany({
-          where: { tokenAddress: token.address },
-        });
-        for (const b of balances) {
-          const bal = BigInt(b.amount || "0");
-          const pct = Number((bal * 10000n) / total) / 100;
-          await prisma.holder.create({
-            data: {
-              chain: "qie",
-              tokenAddress: token.address,
-              holderAddress: b.address,
-              balance: new Prisma.Decimal(b.amount),
-              pctOfSupply: new Prisma.Decimal(pct.toFixed(6)),
-              snapshotTs: new Date(),
-            },
-          });
-        }
+        // Atomic delete+recreate — a concurrent GET /holders mid-swap would
+        // otherwise briefly see zero holders and trigger an unnecessary
+        // extra explorer refresh (getHolders treats "empty" as "needs live fetch").
+        await prisma.$transaction([
+          prisma.holder.deleteMany({ where: { tokenAddress: token.address } }),
+          ...balances.map((b) => {
+            const bal = BigInt(b.amount || "0");
+            const pct = Number((bal * 10000n) / total) / 100;
+            return prisma.holder.create({
+              data: {
+                chain: "qie",
+                tokenAddress: token.address,
+                holderAddress: b.address,
+                balance: new Prisma.Decimal(b.amount),
+                pctOfSupply: new Prisma.Decimal(pct.toFixed(6)),
+                snapshotTs: new Date(),
+              },
+            });
+          }),
+        ]);
         snapshotted++;
       }
     }

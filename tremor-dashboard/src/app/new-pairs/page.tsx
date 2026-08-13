@@ -20,7 +20,7 @@ export default function NewPairsPage() {
   if (isLoading) return <Loading />;
   if (error) return <ErrorBox message={String(error.message || error)} />;
 
-  const pairs = data?.new_pairs.pairs ?? [];
+  const pairs = data?.new_pairs?.pairs ?? [];
 
   return (
     <div className="space-y-3">

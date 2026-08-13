@@ -62,8 +62,8 @@ export default function MarketsHome() {
           p.dex.includes(s) ||
           p.token0.includes(s) ||
           p.token1.includes(s) ||
-          tokenLabel(p.token0).toLowerCase().includes(s) ||
-          tokenLabel(p.token1).toLowerCase().includes(s)
+          (p.symbol0 || tokenLabel(p.token0)).toLowerCase().includes(s) ||
+          (p.symbol1 || tokenLabel(p.token1)).toLowerCase().includes(s)
         );
       });
     }
@@ -148,8 +148,8 @@ export default function MarketsHome() {
           {hot.map((p) => {
             const id = p.pool_address || p.pair_address || "";
             if (!id) return null;
-            const s0 = tokenLabel(p.token0);
-            const s1 = tokenLabel(p.token1);
+            const s0 = p.symbol0 || tokenLabel(p.token0);
+            const s1 = p.symbol1 || tokenLabel(p.token1);
             const up = p.change_24h_pct >= 0;
             return (
               <Link key={id} href={`/pair/${encodeURIComponent(id)}`}>

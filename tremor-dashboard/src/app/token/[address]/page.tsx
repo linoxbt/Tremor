@@ -27,6 +27,7 @@ import {
 } from "@/components/ui";
 import { DexLink } from "@/components/DexLink";
 import { WatchButton } from "@/components/WatchButton";
+import { explorerAssetUrl } from "@/lib/explorer";
 import { PairTable } from "@/components/PairTable";
 import {
   fmtPrice,
@@ -186,17 +187,14 @@ export default function TokenDetailPage() {
     data.primary_pair?.token1?.symbol ||
     data.primary_pair?.token0?.symbol ||
     "QIE";
-  // Prefer non-base as quote display
+  // Prefer the real symbol (from primary_pair) over an address-derived label —
+  // `quote` already resolves to a symbol whenever the API supplied one.
   const quoteLabel =
-    data.markets[0]?.quote
-      ? tokenLabel(data.markets[0].quote)
-      : quote;
-  const riskTone =
-    data.rug.rug_score >= 70
-      ? "red"
-      : data.rug.rug_score >= 40
-        ? "amber"
-        : "green";
+    quote !== "QIE" || !data.markets?.[0]?.quote
+      ? quote
+      : tokenLabel(data.markets[0].quote);
+  const rugScore = data.rug?.rug_score ?? 0;
+  const riskTone = rugScore >= 70 ? "red" : rugScore >= 40 ? "amber" : "green";
 
   async function copy() {
     await navigator.clipboard.writeText(address);
@@ -204,14 +202,16 @@ export default function TokenDetailPage() {
     setTimeout(() => setCopied(false), 1200);
   }
 
-  const buyPct = data.txns.pressure.buy_pct;
-  const sellPct = data.txns.pressure.sell_pct;
+  const buyPct = data.txns?.pressure?.buy_pct ?? 50;
+  const sellPct = data.txns?.pressure?.sell_pct ?? 50;
   const tradersEst = Math.max(
     1,
-    Math.round(data.txns.h24.total * 0.42),
+    Math.round((data.txns?.h24?.total ?? 0) * 0.42),
   );
   const buyersEst = Math.round(tradersEst * (buyPct / 100));
   const sellersEst = Math.max(0, tradersEst - buyersEst);
+  const txnsH24 = data.txns?.h24 ?? { buys: 0, sells: 0, total: 0 };
+  const txnsVolume = data.txns?.volume ?? { buy: 0, sell: 0 };
 
   // Rough pool split 50/50 of liquidity for "pooled" display
   const pooledBaseUsd = data.price.liquidity_usd / 2;
@@ -264,6 +264,16 @@ export default function TokenDetailPage() {
                       className="!text-[10px]"
                     />
                   ) : null}
+                  <a
+                    href={explorerAssetUrl(address)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`View ${address} on explorer`}
+                    className="inline-flex items-center gap-0.5 text-[10px] text-cs-dim hover:text-cs-accent hover:underline"
+                  >
+                    Explorer
+                    <ExternalLink className="h-2.5 w-2.5 opacity-70" />
+                  </a>
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-cs-dim">
                   <button
@@ -503,7 +513,7 @@ export default function TokenDetailPage() {
               Markets
             </div>
             <PairTable
-              rows={data.markets.map((m) => ({
+              rows={(data.markets ?? []).map((m) => ({
                 pool_address: m.pool_address,
                 pair_address: m.pair_address,
                 dex: m.dex,
@@ -536,7 +546,7 @@ export default function TokenDetailPage() {
             <div className="grid grid-cols-2 gap-px bg-cs-border">
               <InfoCell
                 label="Txns"
-                value={String(data.txns.h24.total.toLocaleString())}
+                value={String(txnsH24.total.toLocaleString())}
               />
               <InfoCell
                 label="Volume"
@@ -551,7 +561,7 @@ export default function TokenDetailPage() {
                 label="Buys"
                 value={
                   <span className="text-cs-green">
-                    {data.txns.h24.buys.toLocaleString()}
+                    {txnsH24.buys.toLocaleString()}
                   </span>
                 }
               />
@@ -559,7 +569,7 @@ export default function TokenDetailPage() {
                 label="Sells"
                 value={
                   <span className="text-cs-red">
-                    {data.txns.h24.sells.toLocaleString()}
+                    {txnsH24.sells.toLocaleString()}
                   </span>
                 }
               />
@@ -567,7 +577,7 @@ export default function TokenDetailPage() {
                 label="Buy Vol"
                 value={
                   <span className="text-cs-green">
-                    {fmtUsd(data.txns.volume.buy)}
+                    {fmtUsd(txnsVolume.buy)}
                   </span>
                 }
               />
@@ -575,7 +585,7 @@ export default function TokenDetailPage() {
                 label="Sell Vol"
                 value={
                   <span className="text-cs-red">
-                    {fmtUsd(data.txns.volume.sell)}
+                    {fmtUsd(txnsVolume.sell)}
                   </span>
                 }
               />
@@ -615,8 +625,8 @@ export default function TokenDetailPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={[
-                    { name: "Buy", v: data.txns.volume.buy },
-                    { name: "Sell", v: data.txns.volume.sell },
+                    { name: "Buy", v: txnsVolume.buy },
+                    { name: "Sell", v: txnsVolume.sell },
                   ]}
                 >
                   <XAxis
@@ -686,7 +696,7 @@ export default function TokenDetailPage() {
                 Security
               </span>
               <Badge tone={riskTone} className="ml-auto">
-                {data.rug.risk_level} · {data.rug.rug_score}
+                {data.rug?.risk_level ?? "unknown"} · {rugScore}
               </Badge>
             </div>
             <p className="mb-2 text-[9px] leading-snug text-cs-dim">
@@ -694,7 +704,7 @@ export default function TokenDetailPage() {
               heuristics only — not financial advice.
             </p>
             <div className="space-y-1.5">
-              {Object.entries(data.rug.factors).map(([key, f]) => (
+              {Object.entries(data.rug?.factors ?? {}).map(([key, f]) => (
                 <div key={key}>
                   <div className="mb-0.5 flex justify-between text-[9px]">
                     <span className="capitalize text-cs-muted">
@@ -726,10 +736,10 @@ export default function TokenDetailPage() {
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Badge tone="neutral">{data.token.decimals ?? "—"} decimals</Badge>
               <Badge tone="neutral">
-                Top10 {data.holders.concentration.top10_pct.toFixed(1)}%
+                Top10 {(data.holders?.concentration?.top10_pct ?? 0).toFixed(1)}%
               </Badge>
               <Badge tone="neutral">
-                {data.holders.concentration.holder_count} holders
+                {data.holders?.concentration?.holder_count ?? 0} holders
               </Badge>
             </div>
           </Card>
@@ -751,7 +761,7 @@ export default function TokenDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.holders.holders.slice(0, 12).map((h, i) => (
+                  {(data.holders?.holders ?? []).slice(0, 12).map((h, i) => (
                     <tr
                       key={h.address + i}
                       className="border-t border-cs-border"
@@ -765,7 +775,7 @@ export default function TokenDetailPage() {
                       </td>
                     </tr>
                   ))}
-                  {!data.holders.holders.length ? (
+                  {!data.holders?.holders?.length ? (
                     <tr>
                       <td
                         colSpan={3}

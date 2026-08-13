@@ -20,7 +20,3 @@ export async function internalFetch<T>(path: string): Promise<T> {
   const json = (await res.json()) as Envelope<T>;
   return json.data;
 }
-
-export function apiBase() {
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4021";
-}

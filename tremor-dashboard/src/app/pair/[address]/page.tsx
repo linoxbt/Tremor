@@ -85,20 +85,21 @@ export default function PairDetailPage() {
   if (isLoading) return <Loading label="Loading pair…" />;
   if (error) return <ErrorBox message={String(error.message || error)} />;
   if (!data) return null;
+  if (!data.pair) return <ErrorBox message="Pair data unavailable." />;
 
   const p = data.pair;
   const s0 = p.token0.symbol || shortAddr(p.token0.address, 4, 3);
   const s1 = p.token1.symbol || shortAddr(p.token1.address, 4, 3);
   const up = p.change_24h_pct >= 0;
 
-  const candles = data.ohlcv.candles.map((c) => ({
+  const candles = (data.ohlcv?.candles ?? []).map((c) => ({
     t: c.ts.slice(5, 16).replace("T", " "),
     close: c.close,
     volume: c.volume,
     high: c.high,
     low: c.low,
   }));
-  const liq = data.liquidity_history.series.map((s) => ({
+  const liq = (data.liquidity_history?.series ?? []).map((s) => ({
     t: s.ts.slice(5, 16).replace("T", " "),
     liq: s.liquidity_usd,
   }));

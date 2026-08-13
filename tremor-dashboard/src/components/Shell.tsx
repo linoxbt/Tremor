@@ -135,6 +135,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </Link>
             <button
               onClick={() => setSearchOpen(true)}
+              aria-label="Search"
               className="flex h-7 items-center gap-1.5 rounded-md border border-cs-border bg-cs-elevated px-2 text-[10px] text-cs-muted hover:text-white"
             >
               <Search className="h-3 w-3" />

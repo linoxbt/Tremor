@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode, type HTMLAttributes, type ButtonHTMLAttributes } from "react";
+import { useState, type ReactNode, type HTMLAttributes } from "react";
 import { cn, fmtPct } from "@/lib/utils";
 
 export function Card({
@@ -87,43 +87,6 @@ export function Pct({ value, className }: { value: number; className?: string })
     >
       {up ? "▲" : "▼"} {fmtPct(value).replace("+", "")}
     </span>
-  );
-}
-
-export function Button({
-  variant = "primary",
-  size = "md",
-  className,
-  children,
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "ghost" | "outline" | "soft";
-  size?: "sm" | "md";
-}) {
-  const variants = {
-    primary:
-      "bg-cs-accent text-white hover:brightness-110 border border-transparent",
-    ghost: "bg-transparent text-cs-muted hover:text-white hover:bg-cs-hover border border-transparent",
-    outline:
-      "bg-transparent text-cs-muted hover:text-white border border-cs-border hover:border-cs-accent/50",
-    soft: "bg-[var(--accent-soft)] text-cs-accent border border-[var(--accent-border)] hover:brightness-110",
-  };
-  const sizes = {
-    sm: "h-7 px-2 text-[10px]",
-    md: "h-8 px-3 text-[11px]",
-  };
-  return (
-    <button
-      className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-all disabled:opacity-50",
-        variants[variant],
-        sizes[size],
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -232,15 +195,6 @@ export function ErrorBox({ message }: { message: string }) {
   );
 }
 
-export function Empty({ title, body }: { title: string; body?: string }) {
-  return (
-    <div className="flex flex-col items-center py-10 text-center">
-      <p className="text-[12px] font-medium text-white">{title}</p>
-      {body ? <p className="mt-1 max-w-sm text-[10px] text-cs-dim">{body}</p> : null}
-    </div>
-  );
-}
-
 export function TabBar({
   tabs,
   active,
@@ -270,21 +224,6 @@ export function TabBar({
         </button>
       ))}
     </div>
-  );
-}
-
-export function Input({
-  className,
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      className={cn(
-        "h-7 w-full rounded-md border border-cs-border bg-cs-elevated px-2 text-[11px] text-white placeholder:text-cs-dim",
-        className,
-      )}
-      {...props}
-    />
   );
 }
 

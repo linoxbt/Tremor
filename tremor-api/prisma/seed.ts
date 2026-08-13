@@ -21,24 +21,24 @@ const tokens = [
   { address: synth("1000", 2), symbol: "qUSDT", name: "Qie Tether USD (demo)", decimals: 6 },
   { address: synth("1000", 3), symbol: "wBTC", name: "Wrapped Bitcoin (demo)", decimals: 8 },
   { address: synth("1000", 4), symbol: "wETH", name: "Wrapped Ether (demo)", decimals: 18 },
-  { address: synth("1000", 5), symbol: "PLANET", name: "Planet (demo)", decimals: 18 },
-  { address: synth("1000", 6), symbol: "HEADLINE", name: "Headline (demo)", decimals: 18 },
-  { address: synth("1000", 7), symbol: "OPUL", name: "Opulous (demo)", decimals: 18 },
-  { address: synth("1000", 8), symbol: "YLDY", name: "Yieldly (demo)", decimals: 18 },
-  { address: synth("1000", 9), symbol: "SMILE", name: "Smile Coin (demo)", decimals: 18 },
-  { address: synth("1000", 10), symbol: "DEFLY", name: "Defly Token (demo)", decimals: 18 },
-  { address: synth("1000", 11), symbol: "GORA", name: "Gora (demo)", decimals: 18 },
-  { address: synth("1000", 12), symbol: "GARD", name: "GARD (demo)", decimals: 18 },
-  { address: synth("1000", 13), symbol: "STBL", name: "QieStable (demo)", decimals: 18 },
-  { address: synth("1000", 14), symbol: "VEST", name: "Vestige (demo)", decimals: 18 },
-  { address: synth("1000", 15), symbol: "COOP", name: "Coop Coin (demo)", decimals: 18 },
-  { address: synth("1000", 16), symbol: "CHIP", name: "Chip (demo)", decimals: 18 },
-  { address: synth("1000", 17), symbol: "FOLKS", name: "Folks Finance (demo)", decimals: 18 },
-  { address: synth("1000", 18), symbol: "TINY", name: "Tiny (demo)", decimals: 18 },
-  { address: synth("1000", 19), symbol: "XET", name: "Xfinite (demo)", decimals: 18 },
-  { address: synth("1000", 20), symbol: "ZONE", name: "Zone (demo)", decimals: 18 },
-  { address: synth("1000", 21), symbol: "TAMO", name: "Tamago (demo)", decimals: 18 },
-  { address: synth("1000", 22), symbol: "CHOICE", name: "Choice Coin (demo)", decimals: 18 },
+  { address: synth("1000", 5), symbol: "COMET", name: "Comet Token (demo)", decimals: 18 },
+  { address: synth("1000", 6), symbol: "BEACON", name: "Beacon Token (demo)", decimals: 18 },
+  { address: synth("1000", 7), symbol: "EMBER", name: "Ember Token (demo)", decimals: 18 },
+  { address: synth("1000", 8), symbol: "CINDER", name: "Cinder Token (demo)", decimals: 18 },
+  { address: synth("1000", 9), symbol: "DRIFT", name: "Drift Token (demo)", decimals: 18 },
+  { address: synth("1000", 10), symbol: "HAVEN", name: "Haven Token (demo)", decimals: 18 },
+  { address: synth("1000", 11), symbol: "LUMEN", name: "Lumen Token (demo)", decimals: 18 },
+  { address: synth("1000", 12), symbol: "NOVA", name: "Nova Token (demo)", decimals: 18 },
+  { address: synth("1000", 13), symbol: "ORBIT", name: "Orbit Stable (demo)", decimals: 18 },
+  { address: synth("1000", 14), symbol: "PULSE", name: "Pulse Token (demo)", decimals: 18 },
+  { address: synth("1000", 15), symbol: "QUARTZ", name: "Quartz Token (demo)", decimals: 18 },
+  { address: synth("1000", 16), symbol: "RALLY", name: "Rally Token (demo)", decimals: 18 },
+  { address: synth("1000", 17), symbol: "SOLSTICE", name: "Solstice Token (demo)", decimals: 18 },
+  { address: synth("1000", 18), symbol: "TUNDRA", name: "Tundra Token (demo)", decimals: 18 },
+  { address: synth("1000", 19), symbol: "VERTEX", name: "Vertex Token (demo)", decimals: 18 },
+  { address: synth("1000", 20), symbol: "WILLOW", name: "Willow Token (demo)", decimals: 18 },
+  { address: synth("1000", 21), symbol: "ZENITH", name: "Zenith Token (demo)", decimals: 18 },
+  { address: synth("1000", 22), symbol: "ASTRA", name: "Astra Token (demo)", decimals: 18 },
 ];
 
 const QIE = "0";
@@ -76,6 +76,15 @@ function d(n: number): Prisma.Decimal {
 }
 
 async function main() {
+  if (process.env.NODE_ENV === "production" && process.env.FORCE_SEED !== "true") {
+    console.error(
+      "Refusing to run: NODE_ENV=production and FORCE_SEED is not \"true\". " +
+        "This script deletes all tokens/pools/snapshots/holders/risk flags before reseeding demo data. " +
+        "Set FORCE_SEED=true if you really mean to wipe production data.",
+    );
+    process.exit(1);
+  }
+
   console.log("Seeding Tremor (Qie)…");
 
   // Clean market tables for a full reseed (keep payments if you want — wipe for consistency)

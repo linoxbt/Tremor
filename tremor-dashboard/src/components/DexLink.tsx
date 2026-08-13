@@ -1,6 +1,6 @@
 "use client";
 
-import { dexUrl } from "@/lib/dex";
+import { dexUrl, dexLabel } from "@/lib/dex";
 import { cn } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
 
@@ -18,6 +18,7 @@ export function DexLink({
   showIcon?: boolean;
 }) {
   const href = dexUrl(dex);
+  const label = dexLabel(dex);
 
   if (!href) {
     return (
@@ -27,7 +28,7 @@ export function DexLink({
           className,
         )}
       >
-        {dex}
+        {label}
       </span>
     );
   }
@@ -38,13 +39,13 @@ export function DexLink({
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
-      title={`Open ${dex}`}
+      title={`Open ${label}`}
       className={cn(
         "inline-flex items-center gap-0.5 rounded border border-cs-border bg-cs-hover px-1 py-px text-[9px] font-medium uppercase tracking-wider text-cs-muted transition-colors hover:border-cs-accent/50 hover:text-cs-accent hover:underline",
         className,
       )}
     >
-      {dex}
+      {label}
       {showIcon ? <ExternalLink className="h-2 w-2 opacity-70" /> : null}
     </a>
   );

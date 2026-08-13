@@ -70,6 +70,7 @@ export async function pollPrices(): Promise<void> {
               price: new Prisma.Decimal(price || 0),
               liquidityUsd: new Prisma.Decimal(liq),
               volume24h: new Prisma.Decimal(vol),
+              source: "live",
               ts: new Date(),
             },
           });
@@ -117,6 +118,7 @@ export async function pollPrices(): Promise<void> {
           price: new Prisma.Decimal(price),
           liquidityUsd: new Prisma.Decimal(liq),
           volume24h: new Prisma.Decimal(vol),
+          source: "jitter",
           ts: new Date(),
         },
       });

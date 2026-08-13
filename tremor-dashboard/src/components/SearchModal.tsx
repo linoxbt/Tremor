@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { internalFetch } from "@/lib/api";
 import { TokenAvatar } from "@/components/ui";
 import { DexLink } from "@/components/DexLink";
-import { shortAddr, cn } from "@/lib/utils";
+import { shortAddr, tokenLabel, cn } from "@/lib/utils";
 import { Search, X } from "lucide-react";
 
 type SearchResult = {
@@ -35,15 +35,26 @@ export function SearchModal({
   onClose: () => void;
 }) {
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const router = useRouter();
+
+  // Debounce so a fast typist doesn't fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 250);
+    return () => clearTimeout(t);
+  }, [q]);
+
   const { data } = useSWR(
-    open && q.trim().length >= 1 ? `search:${q}` : null,
-    () => internalFetch<SearchResult>(`/search?q=${encodeURIComponent(q.trim())}`),
+    open && debouncedQ.trim().length >= 1 ? `search:${debouncedQ}` : null,
+    () => internalFetch<SearchResult>(`/search?q=${encodeURIComponent(debouncedQ.trim())}`),
     { revalidateOnFocus: false },
   );
 
   useEffect(() => {
-    if (!open) setQ("");
+    if (!open) {
+      setQ("");
+      setDebouncedQ("");
+    }
   }, [open]);
 
   useEffect(() => {
@@ -133,7 +144,7 @@ export function SearchModal({
                       <div className="min-w-0 flex-1">
                         <div className="num text-sm text-white">{shortAddr(id, 10, 6)}</div>
                         <div className="text-xs text-cs-dim">
-                          {p.token0}/{p.token1}
+                          {tokenLabel(p.token0)}/{tokenLabel(p.token1)}
                         </div>
                       </div>
                       <DexLink dex={p.dex} />

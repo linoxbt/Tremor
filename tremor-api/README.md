@@ -72,7 +72,7 @@ Catalog: `GET http://localhost:4021/`
 | `NETWORK` | `testnet` or `mainnet` |
 | `INTERNAL_API_KEY` | Bearer token for `/internal/*` |
 | `QIE_RPC_URL` / `QIE_EXPLORER_URL` / `QIE_SUBGRAPH_URL` | Qie JSON-RPC, Blockscout, DEX subgraph endpoints |
-| `QIE_FACTORY` / `QIE_ROUTER` / `QIE_WQIE` | Qie DEX factory/router/WQIE contract addresses |
+| `QIE_WQIE` | Wrapped QIE contract address |
 | `USE_MOCK_DATA` | `true` = seed/jitter mode without live DEX mapping |
 
 ### Network constants
@@ -128,6 +128,7 @@ Auth: `Authorization: Bearer $INTERNAL_API_KEY` or `x-api-key`.
 | `pollNewPairs` | 5m | New pool discovery |
 | `pollHolders` | 1h | Holder snapshots |
 | `pollRisk` | 1h | Risk flags (owner privileges, concentration, …) |
+| `pollWatches` | 5m | Fires active `POST /v1/watch` webhooks with fresh endpoint data (SSRF-guarded — refuses loopback/private/link-local webhook targets) |
 
 ## Project layout
 
